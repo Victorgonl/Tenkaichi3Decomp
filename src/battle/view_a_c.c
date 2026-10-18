@@ -16,6 +16,9 @@ extern void Flash_Advance(Flash *flash);
 extern void Flash_Draw(Flash *flash);
 extern void Flash_Play(Flash *flash, s32 arg);
 extern void Flash_GotoLabel(Flash *flash, char *label, s32 arg);
+#ifdef PORT
+extern void Port_FlashDrawMenuArt(void *movie, s32 screen, s32 titleMenuVisible);
+#endif
 
 /* Defined here: this object's .sdata (0x2FF0F0). */
 IconWin *gIconWin = NULL;
@@ -56,7 +59,11 @@ void IconWin_Draw(void) {
     Flash_Advance(&gIconWin->flash);
     /* a loop over one movie, as in the other windows: the call is not a tail call */
     for (i = 0; i < 1; i++) {
+#ifdef PORT
+        Port_FlashDrawMenuArt(&gIconWin->flash, 3, 1);
+#else
         Flash_Draw(&gIconWin->flash);
+#endif
     }
 }
 

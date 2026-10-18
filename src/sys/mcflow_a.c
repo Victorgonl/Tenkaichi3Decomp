@@ -74,6 +74,12 @@ extern void Save_SetDefaults(McFlowSave *save);
 extern s32 Snd_PlaySe(u32 mask, s32 id);
 /* sys/dialog.h, declared here so that this file does not depend on a header that is being renamed */
 extern void Dialog_Draw(s32 visible);
+#ifdef PORT
+extern void Port_DialogDraw43(s32 visible);
+#define MCF_DIALOG_DRAW() Port_DialogDraw43(1)
+#else
+#define MCF_DIALOG_DRAW() Dialog_Draw(1)
+#endif
 extern void Dialog_Start(s32 cmd);
 extern s32 Dialog_Input(s32 allowCancel);
 extern void Dialog_SetChoices(s32 on);
@@ -666,7 +672,7 @@ void McFlow_UpdateSave(void) {
         break;
     }
     Dialog_SetMsg(gMcFlow->msg);
-    Dialog_Draw(1);
+    MCF_DIALOG_DRAW();
 }
 
 /* Flow 1: load the system data after asking. */
@@ -871,7 +877,7 @@ void McFlow_UpdateLoad(void) {
         break;
     }
     Dialog_SetMsg(gMcFlow->msg);
-    Dialog_Draw(1);
+    MCF_DIALOG_DRAW();
 }
 
 /* Flow 2: load the system data without asking (boot). */
@@ -1151,7 +1157,7 @@ void McFlow_UpdateBootLoad(void) {
         break;
     }
     Dialog_SetMsg(gMcFlow->msg);
-    Dialog_Draw(1);
+    MCF_DIALOG_DRAW();
 }
 
 /* Flow 3: create the system data (new game). */
@@ -1570,7 +1576,7 @@ void McFlow_UpdateNewSave(void) {
         break;
     }
     Dialog_SetMsg(gMcFlow->msg);
-    Dialog_Draw(1);
+    MCF_DIALOG_DRAW();
 }
 
 /* Flows 7 and 9: read the header of each of the seven replay files into the slot list. */
@@ -1823,7 +1829,7 @@ void McFlow_UpdateReplayScan(void) {
         break;
     }
     Dialog_SetMsg(gMcFlow->msg);
-    Dialog_Draw(1);
+    MCF_DIALOG_DRAW();
 }
 
 /* Flow 5: save the replay into slot `slot`. */
@@ -2255,7 +2261,7 @@ void McFlow_UpdateReplaySave(void) {
         break;
     }
     Dialog_SetMsg(gMcFlow->msg);
-    Dialog_Draw(1);
+    MCF_DIALOG_DRAW();
 }
 
 /* Flow 6: load the replay of slot `slot`. */
@@ -2500,7 +2506,7 @@ void McFlow_UpdateReplayLoad(void) {
         break;
     }
     Dialog_SetMsg(gMcFlow->msg);
-    Dialog_Draw(1);
+    MCF_DIALOG_DRAW();
 }
 
 /* Flow 8: one question about the card (message 0x3D); the answer goes to the mode callbacks. */
@@ -2620,7 +2626,7 @@ void McFlow_UpdateReplayAsk(void) {
         break;
     }
     Dialog_SetMsg(gMcFlow->msg);
-    Dialog_Draw(1);
+    MCF_DIALOG_DRAW();
 }
 
 /* Allocates the work area, loads the card resources and builds the replay block to save. */

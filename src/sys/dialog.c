@@ -52,6 +52,11 @@ extern void Font_SetShadowOffset(s32 x, s32 y);
 extern void Font_SetColorRGBA(s32 r, s32 g, s32 b, s32 a);
 #ifdef PORT
 extern const u16 *UiText_TranslateLine(const u32 *table, int line, const u16 *original);
+extern void Port_FlashDrawMenuArt(void *movie, s32 screen, s32 titleMenuVisible);
+extern void Port_GsMarker(s32 effect);
+extern s32 Port_TitleMainChars43(void);
+extern s32 Port_Menus43(void);
+static s32 sPortDialog43;
 #define DIALOG_TRANSLATE(tbl, i, str) ((u16 *)UiText_TranslateLine((const u32 *)(tbl), (i), (str)))
 #else
 #define DIALOG_TRANSLATE(tbl, i, str) (str)
@@ -327,9 +332,33 @@ rect.y0 = i * 0x20;
         break;
     }
     gDialog->res.tex0 = visible != 0 ? gDialog->tex0 : NULL;
+#ifdef PORT
+    if (sPortDialog43) {
+        Port_FlashDrawMenuArt(gDialog->flash, 4, 1);
+        Port_GsMarker(0x19); /* only the dialog glyphs, not the window backing */
+    } else {
+        Flash_Draw(gDialog->flash);
+    }
+#else
     Flash_Draw(gDialog->flash);
+#endif
     Font_FlushAll();
+#ifdef PORT
+    if (sPortDialog43) {
+        Port_GsMarker(0x13);
+    }
+#endif
 }
+
+#ifdef PORT
+/* Memory-card flows and the native exit question opt in; other Dialog users are unchanged. */
+void Port_DialogDraw43(s32 visible) {
+    s32 old = sPortDialog43;
+    sPortDialog43 = Port_TitleMainChars43() && !Port_Menus43();
+    Dialog_Draw(visible);
+    sPortDialog43 = old;
+}
+#endif
 
 /* Opens (0), closes (1) or shows without animation-in (2) the window; open and close play SE 4 / 5. */
 void Dialog_Start(s32 cmd) {

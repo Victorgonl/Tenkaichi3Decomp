@@ -13,6 +13,7 @@ extern s32 Snd_PlaySe(u32 mask, s32 id);
 extern void *Sprite_Unpack(void *src, void *dst, s32 *rawSize);
 extern int Port_NetActive(void);
 extern s32 sceGsSyncPath(s32 mode, u16 timeout);
+extern void Port_DialogDraw43(s32 visible);
 #define QUIT_PACK_AT(pack, n) ((u8 *)(pack) + ((((u32 *)(pack))[n] >> 2) << 2))
 
 static Dialog *sQuitDialog;
@@ -174,7 +175,7 @@ void PortQuit_Draw(int vsyncs) {
             sQuitState = 3;
         }
     }
-    Dialog_Draw(1);
+    Port_DialogDraw43(1);
     if (sQuitState == 3 && Dialog_IsClosed()) {
         sQuitState = 7;
     }

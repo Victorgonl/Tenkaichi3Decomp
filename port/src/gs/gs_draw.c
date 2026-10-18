@@ -48,6 +48,8 @@ extern int Port_AspectMilli(void);
 extern void Port_SetAspectMilli(int milli), Port_AudioRefresh(void), Port_SettingsWrite(void);
 extern int gPortMenuMode;       /* headless.c: the menus are running */
 extern int Port_PageAspectMilli(void); /* plat_stub.c: the shape of the page shown now (4:3 in the menus if asked for) */
+extern int Port_TitleMainChars43(void); /* persisted toggle for selected title/main-menu foreground art */
+extern int Port_Menus43(void);
 extern int gPortMusicPercent, gPortSePercent, gPortVoicePercent, gPortStagePercent;
 
 static GsBackend *sBackend;
@@ -1309,13 +1311,16 @@ void GsGpu_Draw(int type, int ctx, const GsVertex *v) {
     /* (Not the cross-fade's picture: it is the whole frame as it was shown, wide view and all, drawn back over the
        whole frame in strips. Each strip is narrower than the screen, so the rule below took it for a piece of 2D
        art and the old shot was drawn at three quarters of the width over the new one: seen by the user.) */
-    if (Port_IsWide() && (!gPortMenuMode || (gsAnchor == 7 && Port_PageAspectMilli() > 1340) ||
+    if (Port_IsWide() && (!gPortMenuMode || (gPortMenuMode && Port_TitleMainChars43() && !Port_Menus43() &&
+                          (gsAnchor == 9 || gsAnchor == 10 || gsAnchor == 11)) ||
+                          (gsAnchor == 7 && Port_PageAspectMilli() > 1340) ||
                           (battleText && Port_PageAspectMilli() > 1340)) &&
-        !sWholeFrame && !d.tex_is_target && !tbo && (type == 6 || fst || battleText || gsAnchor == 8) &&
+        !sWholeFrame && !d.tex_is_target && !tbo &&
+        (type == 6 || fst || battleText || gsAnchor == 8 || gsAnchor == 9 || gsAnchor == 10 || gsAnchor == 11) &&
         gsTargets[d.target].fbp == (uint32_t)gGsMainFbp) {
         /* Widescreen. The 3D scene is projected for a 16:9 picture by the game itself; 2D art is laid out for
            4:3 and would come out a third too wide. Each 2D piece is narrowed to 3/4 about a fixed point:
-             (not in the menus: their pages are shown whole, stretched to the width; see Port_WideFactor)
+             (in menus only selected foreground art is marked for this treatment)
              - in a fight, the left edge, the right edge or the middle for the HUD's left panel, right panel and
                centre parts (markers from the HUD code), so the panels sit at the screen's edges;
              - any other 2D piece, the middle of the screen (see below).
@@ -1333,7 +1338,11 @@ void GsGpu_Draw(int type, int ctx, const GsVertex *v) {
             if (gsVerts[k].y < y0) { y0 = gsVerts[k].y; }
             if (gsVerts[k].y > y1) { y1 = gsVerts[k].y; }
         }
-        if (type == 6 && !d.mode[0] && y1 - y0 >= 400.0f && !battleText) {
+        if (gPortMenuMode && Port_TitleMainChars43() && !Port_Menus43() &&
+            (gsAnchor == 9 || gsAnchor == 10 || gsAnchor == 11)) {
+            /* Keep each marked menu group together around its intended page edge. */
+            pivot = gsAnchor == 10 ? 0.0f : gsAnchor == 11 ? 512.0f : 256.0f;
+        } else if (type == 6 && !d.mode[0] && y1 - y0 >= 400.0f && !battleText) {
             pivot = -1.0f;
         } else if (x1 - x0 >= 480.0f && gsAnchor != 5 && gsAnchor != 6 && gsAnchor != 8 && !battleText) {
             /* Other screen-wide flashes and speed lines still reach the edges. Announcement bands and streaks
@@ -1621,6 +1630,10 @@ void GsGpu_Native(int effect) {
 
     /* 1 = outline. 2 (the see-through tint) is drawn by the generic table pass now (depth_clut), from the game's
        own table. */
+    if (effect >= 0x19 && effect <= 0x1B) { /* selected menu art: centre, left, right */
+        gsAnchor = effect - 0x10;
+        return;
+    }
     if (effect >= 0x15 && effect <= 0x18) {
         /* 5/6: extended life bar; 7: loading page; 8: an announcement and all its effect layers. */
         gsAnchor = effect - 0x10;

@@ -38,9 +38,11 @@ extern "C" void PortInput_TboClipboard(void);      // ... and its "Copy Code": o
 void Match_UpdateAsk(void);                    // net_match.c: asks GitHub for the newest release, once
 int Match_UpdateLatest(void);                  // ... its number (0.1.33 is 133), 0 while unknown
 int Port_Menus43(void);                       // plat_stub.c: the menus are shown at 4:3 in a wider picture
+int Port_TitleMainChars43(void);             // plat_stub.c: selected title/main-menu foreground art stays in proportion
 int Port_LateInput(void);                     // plat_stub.c: "Low input lag", the blanks are waited for before the pad read
 void Port_LateInputSet(int on);
 void Port_Menus43Set(int on);
+void Port_TitleMainChars43Set(int on);
 int Port_HudLayout(void);                      // gs_draw.c: 2 = the HUD is about the middle of the screen
 int GsDraw_HudShown(void);                     // ... and 1 while the game is drawing the HUD's side panels
 const char *Port_NetName(int player);          // the name of the player of side 0 or 1 ("" outside a match)
@@ -1508,6 +1510,18 @@ static void ui_tab(PortVideo &v) {
     ImGui::SetItemTooltip("Where a fight's health bars and gauges sit in a picture wider than 4:3.\n"
                           "Long health bars: the bars reach from the edges to the timer.\n"
                           "In the middle: the original 4:3 arrangement, next to the timer.");
+    {
+        bool characters43 = Port_TitleMainChars43() != 0;
+        if (ImGui::Checkbox("Menu art and dialogs in 4:3", &characters43)) {
+            Port_TitleMainChars43Set(characters43);
+            Port_SettingSave("title_main_chars_43", characters43);
+            Port_SettingsWrite();
+        }
+        ImGui::SetItemTooltip("Keep title/main-menu art, shared menu headers, and save/exit dialog windows in proportion.\n"
+                              "Main-menu options, Dragon Balls and the header's left side align from the left; its right corner aligns from the right.\n"
+                              "Background layers and the save/exit dialog dimmer still fill the screen.\n"
+                              "Character art baked into a background cannot be separated.");
+    }
     {
         bool m43 = Port_Menus43() != 0;
         if (ImGui::Checkbox("Menus in 4:3", &m43)) {

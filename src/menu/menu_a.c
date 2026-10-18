@@ -5,6 +5,9 @@ extern void Port_NetMenuOpen(void);
 extern int Port_NetMenuListed(void);
 extern int Port_NetSession(void);
 extern void Port_NetLeave(void);
+extern s32 Port_TitleMainChars43(void);
+extern s32 Port_Menus43(void);
+s32 gPortMainMenuArtWindow;
 #endif
 #include "sys/pad.h"
 #include "sys/save.h"
@@ -414,10 +417,21 @@ void MainMenu_Draw(void) {
     }
 
     for (i = 0; i < MAINMENU_FLASH_NUM; i++) {
+#ifdef PORT
+        extern void Port_FlashDrawMenuArt(void *movie, s32 screen, s32 titleMenuVisible);
+        Port_FlashDrawMenuArt(&gMainMenu->flash[i], 2, 1);
+#else
         Flash_Draw(&gMainMenu->flash[i]);
+#endif
     }
+#ifdef PORT
+    gPortMainMenuArtWindow = Port_TitleMainChars43() && !Port_Menus43();
+#endif
     IconWin_Draw();
     MsgWin_Draw(0, 0, gMainMenu->voiceLine);
+#ifdef PORT
+    gPortMainMenuArtWindow = 0;
+#endif
 }
 
 /* Sends the plate under the cursor of movie `idx` to a label. */

@@ -555,6 +555,17 @@ float Port_WideFactor(void) {
    Port_PageAspectMilli is the shape of the page being shown now: what the present step and the loading screens
    go by. (PORT_HOST: the player's setting, not the game's state.) */
 PORT_HOST static int sMenus43 = -1;
+/* Experimental, confined to the title and main-menu character clips. */
+PORT_HOST static int sTitleMainChars43 = -1;
+int Port_TitleMainChars43(void) {
+    if (sTitleMainChars43 < 0) {
+        sTitleMainChars43 = Port_Setting("title_main_chars_43", 1) != 0;
+    }
+    return sTitleMainChars43;
+}
+void Port_TitleMainChars43Set(int on) {
+    sTitleMainChars43 = on != 0;
+}
 int Port_Menus43(void) {
     if (sMenus43 < 0) {
         sMenus43 = Port_Setting("menus_43", 0) != 0;

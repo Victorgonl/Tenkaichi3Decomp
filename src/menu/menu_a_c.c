@@ -16,6 +16,7 @@ Title *gTitle = NULL;
 #ifdef PORT
 extern int gPortOverlayOpen; /* port/src/gs/gs_input.c: settings or quit dialog owns input */
 extern int Ui_QuitAsk(void);
+extern void Port_FlashDrawMenuArt(void *movie, s32 screen, s32 titleMenuVisible);
 #endif
 
 /* What ends the screen: the movie plays out for 15 frames, then the fade starts. */
@@ -161,7 +162,11 @@ void Title_Draw(void) {
         Flash_ClipSetUv(flash, &ref, &uv);
     }
     for (i = 0; i < TITLE_FLASH_NUM; i++) {
+#ifdef PORT
+        Port_FlashDrawMenuArt(&gTitle->flash[i], 1, gTitle->state >= 2);
+#else
         Flash_Draw(&gTitle->flash[i]);
+#endif
     }
 }
 

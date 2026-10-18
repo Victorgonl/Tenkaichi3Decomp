@@ -18,6 +18,10 @@ extern void Flash_Play(Flash *flash, s32 arg);
 extern void Flash_GotoLabel(Flash *flash, char *label, s32 arg);
 extern void Flash_FindLabel(Flash *flash, char *parent, char *name, FlashRef *out);
 extern void Font_FlushAll(void);
+#ifdef PORT
+extern s32 gPortMainMenuArtWindow;
+extern void Port_GsMarker(s32 effect);
+#endif
 
 /* text box module, after 0x2600B0 (not decompiled) */
 extern void TextBox_AttachLine(Flash *flash, FlashRef *ref, s32 a, s32 b, s32 line, TextBox *box);
@@ -69,7 +73,17 @@ void MsgWin_Draw(s32 unused0, s32 unused1, s32 line) {
     for (i = 0; i < 1; i++) {
         Flash_Draw(&gMsgWin->flash[i]);
     }
+#ifdef PORT
+    if (gPortMainMenuArtWindow) {
+        Port_GsMarker(0x1A); /* left-anchor only the flushed description glyphs, not the window backing */
+    }
+#endif
     Font_FlushAll();
+#ifdef PORT
+    if (gPortMainMenuArtWindow) {
+        Port_GsMarker(0x13);
+    }
+#endif
 }
 
 /* Starts the slide-in animation of the window's side. */
