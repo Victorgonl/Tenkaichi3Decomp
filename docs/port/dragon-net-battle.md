@@ -32,13 +32,16 @@ planes; the extractor reconstructs RGBA colors and the correct width and height 
 The top-level Wii menu uses the extracted color art directly: eight landscape tiles, Pan, Giru, clouds, crest,
 title, radar, bars, and both states of the three option labels. The cursor selects the original gold or blue
 bar and its matching label. `home-motion.bin` holds keyframes decoded from the Wii FOD movie: the entrance of
-the rows, Pan and Giru, Pan's idle movement, the radar pulse, and the lake sparkles. The home screen plays the complete
-500-frame Pan motion loop at three-quarter speed with interpolation between Wii keyframes, so its final height meets
-its first height without a jump; Giru floats on the same curve with a different phase. The title and crest enter
-after the fade begins, using a longer slide and fade so their movement remains visible, and then drift gently.
-The radar glides to the selected row, and Giru's artwork is mirrored across its vertical axis with its visible
-bounds kept in place. The radar
-pulse animates independently. These are whole-sprite movements;
+the rows, Pan and Giru, Pan's idle movement, the radar pulse, and the lake sparkles. The home screen uses the
+500-frame idle span at three-quarter speed. Pan and Giru use a slightly larger cosine bob with
+five complete cycles in that span, easing at the top and bottom with no pause or jump at the loop seam. Giru has a different
+phase. The title and crest follow the actual main-menu `fl_in` keyframes for `mc_title` and `mc_icon`:
+the crest slides into place, then the title expands horizontally from its left edge. The root movie stops at
+frame 59, before `fl_out` at frame 60; its icon and title children continue their original 60- and 410-frame
+idle loops. The crest bobs gently and the title shifts and changes width while the menu remains open.
+The radar appears after the rows finish entering, then switches directly to the selected row. Giru's artwork is
+mirrored across its vertical axis with its visible bounds kept in place. The radar pulse animates independently.
+These are whole-sprite movements;
 the Wii source artwork does not provide articulated body frames for this home pose. A built-in motion fallback keeps them moving
 if an older extraction has no `home-motion.bin`; the renderer logs which source it loaded. Selection fades through the
 movie's five-frame highlight transition. The European archive has five DragonNe dialogue banks, decoded to

@@ -35,6 +35,9 @@ extern void PortTbo_Paste(void);            /* the clipboard's room code, typed 
    heading) and the message window (MsgWin: the teal box with the meander corners). */
 extern void MsgWin_SetText(void *text); /* (the rest: menu/menu_a.h) */
 extern void IconWin_PortHideWords(void);
+extern s32 IconWin_PortHeadingMotion(s32 frame, f32 *iconDx, f32 *iconDy, s32 *iconAlpha,
+                                     f32 *iconScaleX, f32 *iconScaleY, f32 *titleDx, f32 *titleDy,
+                                     s32 *titleAlpha, f32 *titleScaleX, f32 *titleScaleY);
 extern void MsgWin_PortDrawString(u16 *str); /* (battle/view_a_b.c) the box with a line of ours, in the game's font */
 extern s32 MsgWin_PortLineRoom(s32 right);
 extern void MsgWin_PortSameTop(void);
@@ -329,7 +332,6 @@ typedef struct TboScreen {
     s32 wiiPrevCur;
     s32 wiiSelectT;
     s32 wiiHomeT;      /* Wii FOD entrance frame; begins after the screen fade */
-    f32 wiiRadarY;
     s32 wiiDialogLine;
     s32 wiiDialogT;
     s32 wiiDialogStarted;
@@ -450,7 +452,6 @@ static void Tb_SetMode(s32 mode) {
         if (mode == TB_WII_HOME) {
             sTb->wiiHomeT = 0;
             sTb->wiiDialogTouched = 0;
-            sTb->wiiRadarY = 108.0f + 47.0f * (f32)sTb->wiiCur;
             Port_WiiDialogText(0, sTb->wiiDialogText, sizeof(sTb->wiiDialogText));
         }
     }
@@ -1333,6 +1334,13 @@ static void Tb_Backdrop(void) {
 /* Home artwork decoded from DragonNe section 0. Each option has its own
    unselected and selected label in resource 5, so moving the cursor uses
    the Wii artwork instead of recoloring a captured frame. */
+/* Five complete, smooth up/down cycles over the Wii movie's 500-frame idle
+   span. The cosine eases into each turn and joins the next cycle seamlessly. */
+static f32 Tb_WiiIdleBob(s32 quarter, f32 height) {
+    s32 phase = quarter % 400;
+    return -cosf((f32)phase * (6.283185307f / 400.0f)) * height;
+}
+
 static void Tb_DrawWiiHomeArt(void) {
     s32 i;
     s32 idleQuarter = (sTb->frames * 3) % 2000;
@@ -1341,25 +1349,26 @@ static void Tb_DrawWiiHomeArt(void) {
     s32 entryQuarter = sTb->wiiHomeT * 3;
     f32 barX = Tb_WiiMotionQuarter(TBO_WII_MOTION_BARS_X, entryQuarter);
     f32 panX = Tb_WiiMotionQuarter(TBO_WII_MOTION_PAN_ENTRY_X, entryQuarter) + 11.95f;
-    f32 panY = (Tb_WiiMotionQuarter(TBO_WII_MOTION_PAN_BOB_Y, idleQuarter) - 261.0f) * 2.5f;
+    f32 panY = Tb_WiiIdleBob(idleQuarter, 6.0f);
     f32 giruX = Tb_WiiMotionQuarter(TBO_WII_MOTION_GIRU_X, entryQuarter) - 184.05f;
     f32 giruY = Tb_WiiMotionQuarter(TBO_WII_MOTION_GIRU_Y, entryQuarter) - 71.85f;
-    f32 giruHover = (Tb_WiiMotionQuarter(TBO_WII_MOTION_PAN_BOB_Y, giruIdleQuarter) - 261.0f) * 3.0f;
+    f32 giruHover = Tb_WiiIdleBob(giruIdleQuarter, 4.5f);
     f32 radarScale = Tb_WiiMotionQuarter(TBO_WII_MOTION_RADAR_SCALE, sTb->frames * 3);
-    f32 headerT = ((f32)sTb->wiiHomeT - 8.0f) / 32.0f;
-    f32 headerX;
-    f32 headerY = sinf((f32)sTb->frames * 0.045f) * 0.7f;
+    f32 iconDx = 0.0f, iconDy = 0.0f;
+    f32 titleDx = 0.0f, titleDy = 0.0f;
+    s32 iconAlpha = 0x80, titleAlpha = 0x80;
+    f32 iconScaleX = 1.0f, iconScaleY = 1.0f;
+    f32 titleScaleX = 1.0f, titleScaleY = 1.0f;
 
-    if (headerT < 0.0f) headerT = 0.0f;
-    if (headerT > 1.0f) headerT = 1.0f;
-    headerT = headerT * headerT * (3.0f - 2.0f * headerT);
-    headerX = 1.0f - headerT;
+    IconWin_PortHeadingMotion(sTb->frames, &iconDx, &iconDy, &iconAlpha,
+                              &iconScaleX, &iconScaleY, &titleDx, &titleDy,
+                              &titleAlpha, &titleScaleX, &titleScaleY);
     /* Texture 10 is not centered in its 256-pixel canvas. Keep its visible
        bounds in the same place when reversing its UVs. */
     giruX -= 63.28f;
 
-    /* The 500-frame loop and the entrance play at 3/4 speed. Quarter-frame
-       interpolation avoids repeated positions and keeps the loop gapless. */
+    /* The entrance plays at 3/4 speed. The idle bob has smooth turns at the
+       same cadence, with independent Pan and Giru phases. */
 
     Ps_SpriteScreen(TBO_WII_CLOUDS, 50.0f, 35.0f, 562.0f, 163.0f,
                     0.0f, 0.0f, 1.0f, 1.0f, PS_PLAIN, 0x80);
@@ -1376,7 +1385,7 @@ static void Tb_DrawWiiHomeArt(void) {
                       Port_WiiDialogMouth(sTb->wiiDialogLine, sTb->wiiDialogT, sTb->wiiDialogJapanese);
         /* The two full-body textures contain Pan's widest mouth. The mouth
            overlays are only the half-open and closed shapes. */
-        s32 mouthShape = !lipOpen ? 0 : (sTb->wiiDialogT / 5 & 1) ? 1 : 2;
+        s32 mouthShape = !lipOpen ? 0 : (sTb->wiiDialogT / 10 & 1) ? 1 : 2;
         s32 blink = (idleFrame >= 80 && idleFrame < 88) || (idleFrame >= 200 && idleFrame < 208) ||
                     (idleFrame >= 320 && idleFrame < 328) || (idleFrame >= 440 && idleFrame < 448);
         f32 mouthX = (pointing ? 70.0f : 100.0f) + panX;
@@ -1427,15 +1436,27 @@ static void Tb_DrawWiiHomeArt(void) {
                             barX + 561.0f, y + 34.0f,
                             0.0f, (f32)i * 0.25f, 1.0f, (f32)(i + 1) * 0.25f, PS_PLAIN, selectAlpha);
     }
-    Ps_SpriteScreen(TBO_WII_RADAR, 196.0f - 32.0f * radarScale, sTb->wiiRadarY - 32.0f * radarScale,
-                    196.0f + 32.0f * radarScale, sTb->wiiRadarY + 32.0f * radarScale,
-                    0.0f, 0.0f, 1.0f, 1.0f, PS_PLAIN, 0x80);
-    Ps_SpriteScreen(TBO_WII_CREST, 13.0f - 120.0f * headerX, 16.0f + headerY,
-                    77.0f - 120.0f * headerX, 80.0f + headerY,
-                    0.0f, 0.0f, 1.0f, 1.0f, PS_PLAIN, (s32)(headerT * 128.0f));
-    Ps_SpriteScreen(TBO_WII_TITLE, 62.0f - 420.0f * headerX, 17.0f + headerY,
-                    574.0f - 420.0f * headerX, 81.0f + headerY,
-                    0.0f, 0.0f, 1.0f, 1.0f, PS_PLAIN, (s32)(headerT * 128.0f));
+    /* The rows finish sliding in at source frame 17 (port frame 23).
+       Show the radar afterward and put it directly on the selected row. */
+    if (sTb->wiiHomeT >= 23) {
+        f32 radarY = 108.0f + 47.0f * (f32)sTb->wiiCur;
+        s32 radarAlpha = (sTb->wiiHomeT - 22) * 16;
+        if (radarAlpha > 0x80) radarAlpha = 0x80;
+        Ps_SpriteScreen(TBO_WII_RADAR, 196.0f - 32.0f * radarScale, radarY - 32.0f * radarScale,
+                        196.0f + 32.0f * radarScale, radarY + 32.0f * radarScale,
+                        0.0f, 0.0f, 1.0f, 1.0f, PS_PLAIN, radarAlpha);
+    }
+    Ps_SpriteScreen(TBO_WII_CREST, 45.0f + iconDx - 32.0f * iconScaleX,
+                    48.0f + iconDy - 32.0f * iconScaleY,
+                    45.0f + iconDx + 32.0f * iconScaleX,
+                    48.0f + iconDy + 32.0f * iconScaleY,
+                    0.0f, 0.0f, 1.0f, 1.0f, PS_PLAIN, iconAlpha);
+    /* The native mc_title grows horizontally from its left edge. */
+    Ps_SpriteScreen(TBO_WII_TITLE, 62.0f + titleDx,
+                    17.0f + titleDy,
+                    62.0f + titleDx + 512.0f * titleScaleX,
+                    17.0f + titleDy + 64.0f * titleScaleY,
+                    0.0f, 0.0f, 1.0f, 1.0f, PS_PLAIN, titleAlpha);
     MsgWin_PortDrawString(Tb_BoxLine());
 }
 
@@ -2312,7 +2333,6 @@ s32 PortTbo_Run(void) {
     sTb->wii = gPortTboStartWii;
     sTb->wiiPrevCur = -1;
     sTb->wiiSelectT = 4;
-    sTb->wiiRadarY = 108.0f;
     gPortTboStartWii = 0;
     if (sTb->wii) {
         sTb->mode = TB_WII_HOME;
@@ -2402,12 +2422,6 @@ s32 PortTbo_Run(void) {
         sTb->frames++;
         sTb->modeT++;
         if (sTb->mode == TB_WII_HOME && live && sTb->wiiHomeT < 40) sTb->wiiHomeT++;
-        if (sTb->mode == TB_WII_HOME) {
-            f32 target = 108.0f + 47.0f * (f32)sTb->wiiCur;
-            sTb->wiiRadarY += (target - sTb->wiiRadarY) * 0.16f;
-            if (sTb->wiiRadarY - target < 0.25f && target - sTb->wiiRadarY < 0.25f)
-                sTb->wiiRadarY = target;
-        }
         if (sTb->wiiDialogStarted && live) sTb->wiiDialogT++;
         if (sTb->wiiSelectT < 4) sTb->wiiSelectT++;
         if (sTb->note > 0) {

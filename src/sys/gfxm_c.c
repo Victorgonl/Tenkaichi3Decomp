@@ -1303,6 +1303,48 @@ f32 Flash_ClipGetAlpha(Flash *flash, FlashRef *ref) {
     return FlashClipList_GetAlpha(flash->clips, ref);
 }
 
+#ifdef PORT
+/* Fractional placement and scale of a named clip in its own timeline. */
+void Flash_ClipGetTransform(Flash *flash, FlashRef *ref, f32 *x, f32 *y, f32 *sx, f32 *sy) {
+    FlashProp *prop;
+
+    *x = *y = 0.0f;
+    *sx = *sy = 1.0f;
+    if (ref->index < 0) return;
+    prop = &flash->clips->items[ref->index].prop;
+    *x = prop->mtx.m[2];
+    *y = prop->mtx.m[5];
+    if (prop->flags & FLASH_OV_POS) {
+        *x += prop->x;
+        *y += prop->y;
+    }
+    *sx = prop->mtx.m[0];
+    *sy = prop->mtx.m[4];
+    if (prop->flags & FLASH_OV_SCALE) {
+        *sx *= prop->scaleX;
+        *sy *= prop->scaleY;
+    }
+}
+
+/* A placed shape in a clip's own timeline (the main header title is shape 2). */
+s32 Flash_ClipGetShapeTransform(Flash *flash, FlashRef *ref, s32 depth,
+                                f32 *x, f32 *y, f32 *sx, f32 *sy) {
+    FlashClip *clip;
+    FlashShape *shape;
+
+    if (ref->index < 0) return 0;
+    clip = &flash->clips->items[ref->index];
+    if (depth < 1 || depth > clip->tl.depths) return 0;
+    shape = clip->tl.slots[depth - 1].shape;
+    if (shape == NULL) return 0;
+    *x = shape->mtx.m[2];
+    *y = shape->mtx.m[5];
+    *sx = shape->mtx.m[0];
+    *sy = shape->mtx.m[4];
+    return 1;
+}
+#endif
+
 /* Allocates the pool of placed shapes. */
 void FlashShapePool_Init(FlashShapePool *pool, u32 count) {
     pool->count = count;

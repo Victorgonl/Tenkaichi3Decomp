@@ -6,6 +6,7 @@ extern int Port_WiiArtAvailable(void);
 extern int Port_NetMenuListed(void);
 extern int Port_NetSession(void);
 extern void Port_NetLeave(void);
+extern void IconWin_PortCaptureMainHeading(void);
 #endif
 #include "sys/pad.h"
 #include "sys/save.h"
@@ -196,6 +197,9 @@ void MainMenu_Init(s32 section) {
     Flash_Play(&gMainMenu->flash[0], 1);
     MM_RES(23);
     IconWin_Init(MPACK_AT(gMainMenu->res, 22), res);
+#ifdef PORT
+    IconWin_PortCaptureMainHeading();
+#endif
     IconWin_Open();
     gMainMenu->msgText = MPACK_AT(gMainMenu->res, 28);
     gMainMenu->subtitles = MPACK_AT(gMainMenu->res, 27);
