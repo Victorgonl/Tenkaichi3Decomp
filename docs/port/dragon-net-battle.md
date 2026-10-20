@@ -4,8 +4,10 @@ With the Wii assets extracted, the PS2 main-menu plate **Dragon Net Battle** ope
 in the port's screen mode. Without those assets, it opens the PC online window over the main menu as before.
 Nintendo WFC Battle opens the PC online window over the Wii menu, like the F1 settings window.
 The separate **Tenkaichi Budokai Online** plate still opens its in-game hub.
-Manage Friends remains selectable for its Wii artwork and spoken description. User Settings opens a page with
-Create Player Name and Initialize Wi-Fi Data, using the Wii label sheets. Create Player Name reuses the complete Data Center Password Input keyboard movie: backing, glyphs,
+Manage Friends and Initialize Wi-Fi Data stay in the menu with a dimmed appearance when unfocused. Both can
+receive focus and play the selection sound, but they do not open a screen because their online services are
+unavailable in the PC reconstruction. User Settings opens a page with Create Player Name and
+Initialize Wi-Fi Data, using the Wii label sheets. Create Player Name reuses the complete Data Center Password Input keyboard movie: backing, glyphs,
 selected characters, arrows, delete mark and bottom buttons. Its original selection, release and confirmation
 animations run unchanged. The movie is shifted upward by 30 pixels as one unit to meet the name field;
 individual keys and captions are not repositioned. The password movie's root entrance is settled on opening,

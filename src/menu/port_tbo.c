@@ -908,6 +908,9 @@ static void Tb_WiiUpdate(s32 live) {
             if (*cur == 0) {
                 Snd_PlaySe(1, 1);
                 Port_NetMenuOpen();
+            } else if (*cur == 1) {
+                /* Manage Friends responds to focus and selection, but has no PC service. */
+                Snd_PlaySe(1, 1);
             } else if (*cur == 2) {
                 Snd_PlaySe(1, 1);
                 sTb->wiiSubCur = 0;
@@ -1595,17 +1598,18 @@ static void Tb_DrawWiiHomeArt(void) {
         f32 y = 91.0f + (f32)i * 47.0f;
         s32 selectAlpha = i == sTb->wiiCur ? (sTb->wiiSelectT >= 4 ? 0x80 : sTb->wiiSelectT * 0x80 / 4)
                          : i == sTb->wiiPrevCur && sTb->wiiSelectT < 4 ? (4 - sTb->wiiSelectT) * 0x80 / 4 : 0;
+        u32 tint = i == 1 ? Ps_Rgba(0x58, 0x58, 0x58, 0x80) : PS_PLAIN;
         Ps_SpriteScreen(TBO_WII_BAR_BLUE, barX, y, barX + 461.0f, y + 58.0f,
-                        0.0f, 0.0f, 1.0f, 1.0f, PS_PLAIN, 0x80);
+                        0.0f, 0.0f, 1.0f, 1.0f, tint, 0x80);
         if (selectAlpha > 0)
             Ps_SpriteScreen(TBO_WII_BAR_GOLD, barX, y, barX + 461.0f, y + 58.0f,
-                            0.0f, 0.0f, 1.0f, 1.0f, PS_PLAIN, selectAlpha);
+                            0.0f, 0.0f, 1.0f, 1.0f, tint, selectAlpha);
         Ps_SpriteScreen(TBO_WII_LABEL_IDLE, barX + 49.0f, y + 2.0f, barX + 561.0f, y + 34.0f,
-                        0.0f, (f32)i * 0.25f, 1.0f, (f32)(i + 1) * 0.25f, PS_PLAIN, 0x80);
+                        0.0f, (f32)i * 0.25f, 1.0f, (f32)(i + 1) * 0.25f, tint, 0x80);
         if (selectAlpha > 0)
             Ps_SpriteScreen(TBO_WII_LABEL_SELECTED, barX + 49.0f, y + 2.0f,
                             barX + 561.0f, y + 34.0f,
-                            0.0f, (f32)i * 0.25f, 1.0f, (f32)(i + 1) * 0.25f, PS_PLAIN, selectAlpha);
+                            0.0f, (f32)i * 0.25f, 1.0f, (f32)(i + 1) * 0.25f, tint, selectAlpha);
     }
     /* The rows finish sliding in at source frame 17 (port frame 23).
        Show the radar afterward and put it directly on the selected row. */
@@ -1615,7 +1619,9 @@ static void Tb_DrawWiiHomeArt(void) {
         if (radarAlpha > 0x80) radarAlpha = 0x80;
         Ps_SpriteScreen(TBO_WII_RADAR, 196.0f - 32.0f * radarScale, radarY - 32.0f * radarScale,
                         196.0f + 32.0f * radarScale, radarY + 32.0f * radarScale,
-                        0.0f, 0.0f, 1.0f, 1.0f, PS_PLAIN, radarAlpha);
+                        0.0f, 0.0f, 1.0f, 1.0f,
+                        sTb->wiiCur == 1 ? Ps_Rgba(0x58, 0x58, 0x58, 0x80) : PS_PLAIN,
+                        radarAlpha);
     }
     Ps_SpriteScreen(TBO_WII_CREST, 45.0f + iconDx - 32.0f * iconScaleX,
                     48.0f + iconDy - 32.0f * iconScaleY,
@@ -1801,20 +1807,33 @@ static void Tb_DrawWii(void) {
                                   &titleAlpha, &titleScaleX, &titleScaleY);
         for (i = 0; i < 2; i++) {
             f32 y = 103.0f + (f32)i * 48.0f;
+            s32 disabled = i == 1;
+            u32 tint = disabled ? Ps_Rgba(0x58, 0x58, 0x58, 0x80) : PS_PLAIN;
             s32 selected = i == sTb->wiiSubCur;
+            s32 focusAlpha = selected ? 0x80 : 0;
 
-            Ps_SpriteScreen(selected ? TBO_WII_BAR_GOLD : TBO_WII_BAR_BLUE,
+            Ps_SpriteScreen(TBO_WII_BAR_BLUE,
                             162.0f, y, 623.0f, y + 58.0f,
-                            0.0f, 0.0f, 1.0f, 1.0f, PS_PLAIN, 0x80);
-            Ps_SpriteScreen(selected ? TBO_WII_SETTINGS_LABEL_SELECTED : TBO_WII_SETTINGS_LABEL_IDLE,
+                            0.0f, 0.0f, 1.0f, 1.0f, tint, 0x80);
+            if (focusAlpha > 0)
+                Ps_SpriteScreen(TBO_WII_BAR_GOLD, 162.0f, y, 623.0f, y + 58.0f,
+                                0.0f, 0.0f, 1.0f, 1.0f, tint, focusAlpha);
+            Ps_SpriteScreen(TBO_WII_SETTINGS_LABEL_IDLE,
                             212.0f, y + 3.0f, 724.0f, y + 35.0f,
-                            0.0f, (f32)i * 0.5f, 1.0f, (f32)(i + 1) * 0.5f, PS_PLAIN, 0x80);
+                            0.0f, (f32)i * 0.5f, 1.0f, (f32)(i + 1) * 0.5f, tint, 0x80);
+            if (focusAlpha > 0)
+                Ps_SpriteScreen(TBO_WII_SETTINGS_LABEL_SELECTED,
+                                212.0f, y + 3.0f, 724.0f, y + 35.0f,
+                                0.0f, (f32)i * 0.5f, 1.0f, (f32)(i + 1) * 0.5f,
+                                tint, focusAlpha);
         }
         {
             f32 radarY = 120.0f + (f32)sTb->wiiSubCur * 48.0f;
             Ps_SpriteScreen(TBO_WII_RADAR, 196.0f - 32.0f * radarScale, radarY - 32.0f * radarScale,
                             196.0f + 32.0f * radarScale, radarY + 32.0f * radarScale,
-                        0.0f, 0.0f, 1.0f, 1.0f, PS_PLAIN, 0x80);
+                        0.0f, 0.0f, 1.0f, 1.0f,
+                        sTb->wiiSubCur == 1 ? Ps_Rgba(0x58, 0x58, 0x58, 0x80) : PS_PLAIN,
+                        0x80);
         }
         Ps_SpriteScreen(TBO_WII_CREST, 45.0f + iconDx - 32.0f * iconScaleX,
                         48.0f + iconDy - 32.0f * iconScaleY,
