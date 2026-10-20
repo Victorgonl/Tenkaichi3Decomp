@@ -559,8 +559,8 @@ static GsTex tbo_texture(uint32_t id) {
     GsTex *cached;
     unsigned char *missing;
     int languageArt = id >= TBO_LANG_BG && id <= TBO_LANG_ARROW_RIGHT;
-    int wiiArt = id >= TBO_WII_BG_0 && id <= TBO_WII_LABEL_IDLE;
-    int wiiResource = 0, wiiTexture = 0;
+    int wiiArt = id >= TBO_WII_BG_0 && id <= TBO_WII_SETTINGS_TITLE;
+    int wiiResource = 0, wiiTexture = 0, wiiPart = -1;
 
     if (id >= TBO_TEXT_BASE && id < TBO_TEXT_BASE + TBO_TEXT_SLOTS) {
         return tbo_text_texture(id);
@@ -602,18 +602,74 @@ static GsTex tbo_texture(uint32_t id) {
         else if (id == TBO_WII_CREST) { wiiResource = 4; wiiTexture = 0; }
         else if (id == TBO_WII_TITLE) { wiiResource = 4; wiiTexture = 1; }
         else if (id == TBO_WII_LABEL_SELECTED) { wiiResource = 5; wiiTexture = 0; }
+        else if (id == TBO_WII_SETTINGS_LABEL_SELECTED) { wiiResource = 5; wiiTexture = 2; }
+        else if (id == TBO_WII_SETTINGS_LABEL_IDLE) { wiiResource = 5; wiiTexture = 5; }
+        else if (id == TBO_WII_NAME_TITLE) { wiiResource = 13; wiiPart = 2; wiiTexture = 4; }
+        else if (id == TBO_WII_NAME_BUTTON_LABELS) { wiiResource = 13; wiiPart = 2; wiiTexture = 1; }
+        else if (id == TBO_WII_NAME_KEYBOARD) { wiiResource = 13; wiiPart = 1; wiiTexture = 0; }
+        else if (id == TBO_WII_NAME_GLYPHS) { wiiResource = 13; wiiPart = 2; wiiTexture = 0; }
+        else if (id == TBO_WII_NAME_KEY_HIGHLIGHT) { wiiResource = 13; wiiPart = 1; wiiTexture = 7; }
+        else if (id == TBO_WII_NAME_KEY_WIDE_HIGHLIGHT) { wiiResource = 13; wiiPart = 1; wiiTexture = 6; }
+        else if (id == TBO_WII_NAME_DELETE_X) { wiiResource = 13; wiiPart = 1; wiiTexture = 1; }
+        else if (id == TBO_WII_NAME_CURSOR) { wiiResource = 13; wiiPart = 1; wiiTexture = 10; }
+        else if (id == TBO_WII_NAME_INPUT_FRAME) { wiiResource = 13; wiiPart = 1; wiiTexture = 9; }
+        else if (id == TBO_WII_SETTINGS_TITLE) { wiiResource = 4; wiiTexture = 3; }
         else { wiiResource = 5; wiiTexture = 3; }
         base = SDL_GetBasePath();
-        snprintf(path, sizeof(path), "%sgamedata/dragon-net-battle/section-00/resource-%03d-textures/texture-%03d.png",
-                 base != NULL ? base : "", wiiResource, wiiTexture);
-        png = SDL_LoadPNG(path);
-        if (png == NULL && base != NULL) {
-            snprintf(path, sizeof(path), "%s../../gamedata/dragon-net-battle/section-00/resource-%03d-textures/texture-%03d.png",
-                     base, wiiResource, wiiTexture);
-            png = SDL_LoadPNG(path);
+        png = NULL;
+        if (id == TBO_WII_TITLE || id == TBO_WII_SETTINGS_TITLE ||
+            id == TBO_WII_LABEL_SELECTED || id == TBO_WII_LABEL_IDLE ||
+            id == TBO_WII_SETTINGS_LABEL_SELECTED || id == TBO_WII_SETTINGS_LABEL_IDLE ||
+            id == TBO_WII_NAME_TITLE || id == TBO_WII_NAME_BUTTON_LABELS) {
+            MenuTranslation_Ensure();
+            const char *selected = MenuTranslation_Locale();
+            const char *locale = "en";
+            const char *roots[3] = {base, NULL, ""};
+            int rootIndex;
+            if (selected != NULL &&
+                (strncmp(selected, "es", 2) == 0 || strncmp(selected, "de", 2) == 0 ||
+                 strncmp(selected, "fr", 2) == 0 || strncmp(selected, "it", 2) == 0))
+                locale = selected;
+            if (base != NULL) {
+                static char relativeRoot[1024];
+                snprintf(relativeRoot, sizeof(relativeRoot), "%s../../", base);
+                roots[1] = relativeRoot;
+            }
+            for (rootIndex = 0; rootIndex < 3 && png == NULL; rootIndex++) {
+                if (roots[rootIndex] == NULL) continue;
+                if (wiiPart >= 0)
+                    snprintf(path, sizeof(path), "%sgamedata/dragon-net-battle/languages/%.2s/resource-%03d-part-%02d-textures/texture-%03d.png",
+                             roots[rootIndex], locale, wiiResource, wiiPart, wiiTexture);
+                else
+                    snprintf(path, sizeof(path), "%sgamedata/dragon-net-battle/languages/%.2s/resource-%03d-textures/texture-%03d.png",
+                             roots[rootIndex], locale, wiiResource, wiiTexture);
+                png = SDL_LoadPNG(path);
+            }
         }
         if (png == NULL) {
-            snprintf(path, sizeof(path), "gamedata/dragon-net-battle/section-00/resource-%03d-textures/texture-%03d.png", wiiResource, wiiTexture);
+            if (wiiPart >= 0)
+                snprintf(path, sizeof(path), "%sgamedata/dragon-net-battle/section-00/resource-%03d-part-%02d-textures/texture-%03d.png",
+                         base != NULL ? base : "", wiiResource, wiiPart, wiiTexture);
+            else
+                snprintf(path, sizeof(path), "%sgamedata/dragon-net-battle/section-00/resource-%03d-textures/texture-%03d.png",
+                         base != NULL ? base : "", wiiResource, wiiTexture);
+            png = SDL_LoadPNG(path);
+            if (png == NULL && base != NULL) {
+                if (wiiPart >= 0)
+                    snprintf(path, sizeof(path), "%s../../gamedata/dragon-net-battle/section-00/resource-%03d-part-%02d-textures/texture-%03d.png",
+                             base, wiiResource, wiiPart, wiiTexture);
+                else
+                    snprintf(path, sizeof(path), "%s../../gamedata/dragon-net-battle/section-00/resource-%03d-textures/texture-%03d.png",
+                             base, wiiResource, wiiTexture);
+                png = SDL_LoadPNG(path);
+            }
+        }
+        if (png == NULL) {
+            if (wiiPart >= 0)
+                snprintf(path, sizeof(path), "gamedata/dragon-net-battle/section-00/resource-%03d-part-%02d-textures/texture-%03d.png",
+                         wiiResource, wiiPart, wiiTexture);
+            else
+                snprintf(path, sizeof(path), "gamedata/dragon-net-battle/section-00/resource-%03d-textures/texture-%03d.png", wiiResource, wiiTexture);
             png = SDL_LoadPNG(path);
         }
     } else {

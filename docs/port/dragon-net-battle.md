@@ -4,8 +4,25 @@ With the Wii assets extracted, the PS2 main-menu plate **Dragon Net Battle** ope
 in the port's screen mode. Without those assets, it opens the PC online window over the main menu as before.
 Nintendo WFC Battle opens the PC online window over the Wii menu, like the F1 settings window.
 The separate **Tenkaichi Budokai Online** plate still opens its in-game hub.
-Manage Friends and User Settings remain selectable for their Wii artwork and
-spoken descriptions; pressing Enter on either keeps the Wii menu open. The Wii home screen omits the port's bottom
+Manage Friends remains selectable for its Wii artwork and spoken description. User Settings opens a page with
+Create Player Name and Initialize Wi-Fi Data, using the Wii label sheets. Create Player Name reuses the complete Data Center Password Input keyboard movie: backing, glyphs,
+selected characters, arrows, delete mark and bottom buttons. Its original selection, release and confirmation
+animations run unchanged. The movie is shifted upward by 30 pixels as one unit to meet the name field;
+individual keys and captions are not repositioned. The password movie's root entrance is settled on opening,
+then the name page moves the entire keyboard with the field during its entrance.
+The Wii resource 13 frame, title, underline cursor and typed characters supply the name field above the keyboard.
+The name field mirrors the Wii frame's half-width art and shows Giru behind it. Typed characters are vertically
+centered inside the field.
+Pan remains visible in User Settings and leaves as the keyboard opens. Giru stays beside her on the settings page,
+then follows the 30 position samples of the Wii `fl_1` movie into the name field and turns toward it during the
+keyboard entrance. The settings page keeps Giru at his home position and original size. The keyboard backing,
+glyphs, captions, and text field share the Wii nickname movie's 16-frame entrance.
+Returning from User Settings preserves the home positions without replaying their entrance. Both characters keep
+their continuous idle movement.
+The settings header uses the Wii **User Settings** title from section 0, resource 4, texture 3, with the
+existing header animation.
+Decide saves the name to `net_name` in `bt3_settings.txt` and updates the
+online name used by the port. Initialize Wi-Fi Data remains unavailable. The Wii home screen omits the port's bottom
 right Enter and Back hints.
 
 Extract the menu from a Wii disc you own:
@@ -45,8 +62,13 @@ These are whole-sprite movements;
 the Wii source artwork does not provide articulated body frames for this home pose. A built-in motion fallback keeps them moving
 if an older extraction has no `home-motion.bin`; the renderer logs which source it loaded. Selection fades through the
 movie's five-frame highlight transition. The European archive has five DragonNe dialogue banks, decoded to
-`home-subtitles-{en,es,de,fr,it}.bin` with 44 lines each. The port's selected menu language chooses the subtitle bank;
-other menu languages fall back to English. Section 0 resource 6 has
+`home-subtitles-{en,es,de,fr,it}.bin` with 44 lines each. It also supplies five sets of headings,
+option labels, and Create Player Name artwork, including its button captions, under
+`languages/{en,es,de,fr,it}/`.
+The port's selected menu language chooses the subtitle bank and matching Wii artwork;
+other menu languages fall back to English. Older extractions without localized artwork use the original
+English sheets. The landscape, moving clouds, and river sparkles stay visible behind Wii submenus.
+Section 0 resource 6 has
 separate Japanese and English lip events for each. The matching ADX voices are entries 30787–30830 (Japanese) and
 32159–32202 (English) in the Wii voice archive. The extractor pairs them in `home-dialog.bin` and
 `voices/{ja,en}/000.adx` through `043.adx`, checking each recording against its own lip track.

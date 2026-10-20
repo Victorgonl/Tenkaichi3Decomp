@@ -54,6 +54,18 @@ static const u16 sTboSize[TBO_ART_COUNT][3] = {
     {512, 64, 0}, /* wii_title */
     {512, 128, 0}, /* wii_label_selected */
     {512, 128, 0}, /* wii_label_idle */
+    {512, 64, 0}, /* wii_settings_label_selected */
+    {512, 64, 0}, /* wii_settings_label_idle */
+    {512, 64, 0}, /* wii_name_title */
+    {256, 256, 0}, /* wii_name_button_labels */
+    {512, 256, 0}, /* wii_name_keyboard */
+    {512, 256, 0}, /* wii_name_glyphs */
+    {64, 64, 0}, /* wii_name_key_highlight */
+    {128, 64, 0}, /* wii_name_key_wide_highlight */
+    {32, 32, 0}, /* wii_name_delete_x */
+    {32, 32, 0}, /* wii_name_cursor */
+    {256, 256, 0}, /* wii_name_input_frame */
+    {512, 64, 0}, /* wii_settings_title */
 };
 
 #endif

@@ -444,14 +444,41 @@ def read_online(afs, requested):
         return index, pack, matches
 
 
-def extract_subtitles(afs, out, matches):
-    """Write each PAL DragonNe text bank for the port's menu language selector."""
+def online_locales(afs, matches):
     if afs.name.lower() == "wzs3eu1.afs":
         if len(matches) != 5:
             raise ValueError("PAL DragonNe archive does not have five language entries")
-        locales = ("en", "es", "de", "fr", "it")
-    else:
-        locales = ("en",)
+        return ("en", "es", "de", "fr", "it")
+    return ("en",)
+
+
+def extract_menu_art(afs, out, matches):
+    """Decode the language-specific Wii headings, labels, and name screen."""
+    art_root = out / "languages"
+    if art_root.exists():
+        shutil.rmtree(art_root)
+    for locale, index in zip(online_locales(afs, matches), matches):
+        _, pack, _ = read_online(afs, index)
+        boundaries = table(pack, f"{locale} online pack")
+        section = bpe(pack[boundaries[0]:boundaries[1]], f"{locale} section 0")
+        positions = table(section, f"{locale} section 0")
+        for resource_index in (4, 5):
+            resource = section[positions[resource_index]:positions[resource_index + 1]]
+            folder = art_root / locale / f"resource-{resource_index:03d}-textures"
+            folder.mkdir(parents=True, exist_ok=True)
+            for texture_index, width, height, pixels in textures(resource):
+                png(folder / f"texture-{texture_index:03d}.png", width, height, pixels)
+        resource = section[positions[13]:positions[14]]
+        parts = table(resource, f"{locale} nickname pack")
+        folder = art_root / locale / "resource-013-part-02-textures"
+        folder.mkdir(parents=True, exist_ok=True)
+        for texture_index, width, height, pixels in textures(resource[parts[2]:parts[3]]):
+            png(folder / f"texture-{texture_index:03d}.png", width, height, pixels)
+
+
+def extract_subtitles(afs, out, matches):
+    """Write each PAL DragonNe text bank for the port's menu language selector."""
+    locales = online_locales(afs, matches)
     for old in out.glob("home-subtitles-*.bin"):
         old.unlink()
     for locale, index in zip(locales, matches):
@@ -542,13 +569,29 @@ def extract(source, out, dolphin_tool, requested, voice_afs=None, require_eu=Fal
                 filename = f"texture-{ti:03d}.png"
                 png(image_dir / filename, w, h, pixels)
                 pics.append({"file": f"{image_dir.name}/{filename}", "width": w, "height": h})
-            items.append({"index": ri, "offset": x, "size": y - x, "textures": pics})
+            item = {"index": ri, "offset": x, "size": y - x, "textures": pics}
+            if si == 0 and ri == 13:
+                # The nickname resource contains the keyboard and input frame
+                # in part 1, and the Create Player Name heading in part 2.
+                parts = table(resource, "nickname pack")
+                nested_pics = []
+                for part in (1, 2):
+                    a, b = parts[part:part + 2]
+                    for ti, w, h, pixels in textures(resource[a:b]):
+                        image_dir = folder / f"resource-013-part-{part:02d}-textures"
+                        image_dir.mkdir(exist_ok=True)
+                        filename = f"texture-{ti:03d}.png"
+                        png(image_dir / filename, w, h, pixels)
+                        nested_pics.append({"file": f"{image_dir.name}/{filename}", "width": w, "height": h})
+                item["nested_textures"] = nested_pics
+            items.append(item)
         manifest["sections"].append({"index": si, "decoded_size": len(section), "resources": items})
     (out / "manifest.json").write_text(json.dumps(manifest, indent=2) + "\n")
     home_dialog((out / "section-00/resource-007.bin").read_bytes(),
                 (out / "section-00/resource-006.bin").read_bytes(),
                 voice_afs if voice_afs is not None and voice_afs.is_file() else None, out)
     extract_subtitles(afs, out, matches)
+    extract_menu_art(afs, out, matches)
     if voice_afs is None or not voice_afs.is_file():
         print("Wii voice archive unavailable: extracted text and lip tracks; pass --voice-afs for the voices")
     cards = []
@@ -557,6 +600,10 @@ def extract(source, out, dolphin_tool, requested, voice_afs=None, require_eu=Fal
             for texture in resource["textures"]:
                 path = f"section-{section['index']:02d}/{texture['file']}"
                 label = f"section {section['index']} · resource {resource['index']} · {texture['width']}×{texture['height']}"
+                cards.append(f'<figure><a href="{html.escape(path)}"><img loading="lazy" src="{html.escape(path)}" alt="{html.escape(label)}"></a><figcaption>{html.escape(label)}</figcaption></figure>')
+            for texture in resource.get("nested_textures", []):
+                path = f"section-{section['index']:02d}/{texture['file']}"
+                label = f"section {section['index']} · resource {resource['index']} · nickname · {texture['width']}×{texture['height']}"
                 cards.append(f'<figure><a href="{html.escape(path)}"><img loading="lazy" src="{html.escape(path)}" alt="{html.escape(label)}"></a><figcaption>{html.escape(label)}</figcaption></figure>')
     (out / "index.html").write_text(
         '<!doctype html><html lang="en"><meta charset="utf-8"><title>Dragon Net Battle assets</title>'

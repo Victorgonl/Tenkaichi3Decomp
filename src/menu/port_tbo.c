@@ -42,6 +42,11 @@ extern void MsgWin_PortDrawString(u16 *str); /* (battle/view_a_b.c) the box with
 extern s32 MsgWin_PortLineRoom(s32 right);
 extern void MsgWin_PortSameTop(void);
 extern s32 Port_WiiArtAvailable(void);
+extern s32 Port_DcNameOpen(void);
+extern void Port_DcNameClose(void);
+extern s32 Port_DcNameKey(s32 page, s32 row, s32 col);
+extern void Port_DcNamePress(s32 page, s32 row, s32 col);
+extern void Port_DcNameDraw(s32 page, s32 row, s32 col, s32 rise);
 extern s32 Port_WiiDialogText(s32 line, char *out, s32 capacity);
 extern s32 Port_WiiDialogDuration(s32 line, s32 japanese);
 extern s32 Port_WiiDialogMouth(s32 line, s32 frame, s32 japanese);
@@ -274,6 +279,7 @@ extern int Port_DataFingerprintOriginal(void);           /* 1 the data the game 
 extern const char *Port_DataFingerprintText(void);
 extern int Port_Setting(const char *name, int def);
 extern void Port_SettingSave(const char *name, int value);
+extern void Port_SettingTextSave(const char *name, const char *value);
 extern void Port_SettingsWrite(void);
 
 /* the screens */
@@ -291,6 +297,7 @@ extern void Port_SettingsWrite(void);
 #define TB_WII_FRIENDS 11
 #define TB_WII_SETTINGS 12
 #define TB_WII_RANKING 13
+#define TB_WII_NAME 14
 #define TB_FIGHTERS 161
 #define TB_TOURNAMENT_STAGE 4 /* the World Tournament Stage, at noon */
 
@@ -377,6 +384,7 @@ typedef struct TboScreen {
     s32 blockBack;      /* the screen "Cannot Go Online" goes back to */
     s32 typing;         /* the PC keyboard types (circle on a keypad); else its keys are the pad's, as everywhere */
     s32 lower;          /* the name pad shows small letters */
+    s32 nameCursor;     /* insertion point in the Wii name editor */
     /* typing the name */
     char typed[20];
     s32 typedLen;
@@ -395,7 +403,7 @@ static char *sTbHubName[HUB_COUNT] = {"Quick Match", "Ranked Match", "Create Roo
 static char *sTbWiiHomeName[3] = {"Nintendo WFC Battle", "Manage Friends", "User Settings"};
 static char *sTbWiiBattleName[6] = {"Custom Battle", "Normal Battle", "Friend Battle", "Ranking Battle", "View Ranking", "Battle Record"};
 static char *sTbWiiFriendsName[3] = {"Friend List", "Add Friend", "My Friend Code"};
-static char *sTbWiiSettingsName[2] = {"Player Name", "Initialize Online Data"};
+static char *sTbWiiSettingsName[2] = {"Create Player Name", "Initialize Wi-Fi Data"};
 static char *sTbWiiRankingName[2] = {"My Area", "Top 10"};
 
 static s32 Tb_Home(void) {
@@ -415,6 +423,10 @@ static char *sTbHubSay[HUB_COUNT] = {
 };
 static char *sTbTime[5] = {"60 SECONDS", "90 SECONDS", "180 SECONDS", "240 SECONDS", "NO LIMIT"};
 static char sTbKeys[KEY_ROWS][KEY_COLS + 1] = {"ABCDEFGHI", "JKLMNOPQR", "STUVWXYZ0", "123456789"};
+/* Data Center's password keyboard. The last two columns on rows 1/2 move
+   the text cursor; the last two on row 3 delete. */
+#define WII_KEY_COLS 14
+#define WII_KEY_ROWS 4
 
 /* ---------------------------------------------------------------------------------------------- small things */
 static f32 Tb_Beat(s32 period) {
@@ -442,16 +454,22 @@ static void Tb_Note(char *line) {
 }
 
 static void Tb_SetMode(s32 mode) {
-    sTb->typing = mode == TB_JOIN || mode == TB_NAME; /* the keyboard types on a keypad (elsewhere I is triangle ...) */
+    s32 previous = sTb->mode;
+    if (sTb->mode == TB_WII_NAME && mode != TB_WII_NAME) Port_DcNameClose();
+    sTb->typing = mode == TB_JOIN || mode == TB_NAME;
     Port_TextMode(sTb->typing);
     if (sTb->mode != mode) { /* (the page that is up again, as when the rival comes on the search: it does not come in anew) */
         if (sTb->wiiDialogStarted) Voice_Stop(0);
         sTb->wiiDialogStarted = 0;
         sTb->wiiDialogText[0] = 0;
         sTb->modeT = 0;
+        if (previous == TB_WII_NAME && mode == TB_WII_SETTINGS)
+            sTb->modeT = 24; /* return with the settings page already settled */
         if (mode == TB_WII_HOME) {
-            sTb->wiiHomeT = 0;
-            sTb->wiiDialogTouched = 0;
+            if (previous != TB_WII_SETTINGS) {
+                sTb->wiiHomeT = 0;
+                sTb->wiiDialogTouched = 0;
+            }
             Port_WiiDialogText(0, sTb->wiiDialogText, sizeof(sTb->wiiDialogText));
         }
     }
@@ -852,8 +870,7 @@ static void Tb_HubUpdate(s32 live) {
     }
 }
 
-/* The Wii home menu opens the PC online window. Its other two
-   choices remain on this screen until their Wii pages are ported. */
+/* The Wii home menu opens the PC online window or the Wii settings page. */
 static void Tb_WiiUpdate(s32 live) {
     Pad *pad = &gPad[0];
     s32 *cur = sTb->mode == TB_WII_HOME ? &sTb->wiiCur
@@ -861,7 +878,7 @@ static void Tb_WiiUpdate(s32 live) {
     s32 count = sTb->mode == TB_WII_HOME || sTb->mode == TB_WII_FRIENDS ? 3
               : sTb->mode == TB_WII_BATTLE ? 6 : 2;
 
-    if (sTb->mode != TB_WII_HOME) {
+    if (sTb->mode != TB_WII_HOME && sTb->mode != TB_WII_SETTINGS) {
         Ps_Prompt(0, "Enter");
         Ps_Prompt(2, "Back");
     }
@@ -891,6 +908,10 @@ static void Tb_WiiUpdate(s32 live) {
             if (*cur == 0) {
                 Snd_PlaySe(1, 1);
                 Port_NetMenuOpen();
+            } else if (*cur == 2) {
+                Snd_PlaySe(1, 1);
+                sTb->wiiSubCur = 0;
+                Tb_SetMode(TB_WII_SETTINGS);
             }
         } else {
             Snd_PlaySe(1, 1);
@@ -911,10 +932,19 @@ static void Tb_WiiUpdate(s32 live) {
                 sTb->wiiSubCur = 0;
                 Tb_SetMode(TB_WII_RANKING);
             } else if (sTb->mode == TB_WII_SETTINGS && *cur == 0) {
-                sTb->prCur = 0;
-                Tb_SetMode(TB_PROFILE);
+                if (!Port_DcNameOpen()) {
+                    return;
+                }
+                Ps_Copy(sTb->typed, Port_NetNameGet(), sizeof(sTb->typed));
+                sTb->typed[16] = 0; /* matches the online window's 16-character field */
+                sTb->typedLen = Ps_Len(sTb->typed);
+                sTb->nameCursor = sTb->typedLen;
+                sTb->keyRow = 0;
+                sTb->keyCol = 0;
+                sTb->lower = 0;
+                Tb_SetMode(TB_WII_NAME);
             } else {
-                Tb_Note("THIS WII SERVER FEATURE IS NOT AVAILABLE ON THE PC SERVICE");
+                /* Leave unsupported Wii options without a port-specific dialog. */
             }
         }
     } else if (pad->gamePressed & PADG_TRIANGLE) {
@@ -1197,8 +1227,16 @@ static s32 Tb_NameKey(s32 c) {
     s32 r;
     s32 k;
 
-    if (c == ' ') {
+    if (c == ' ' && sTb->mode != TB_WII_NAME) {
         return 1;
+    }
+    if (sTb->mode == TB_WII_NAME) {
+        s32 row, col, page;
+        for (page = 0; page < 2; page++)
+            for (row = 0; row < 4; row++)
+                for (col = 0; col < 14; col++)
+                    if (Port_DcNameKey(page, row, col) == c) return 1;
+        return 0;
     }
     for (r = 0; r < NAME_ROWS; r++) {
         for (k = 0; k < KEY_COLS; k++) {
@@ -1212,16 +1250,127 @@ static s32 Tb_NameKey(s32 c) {
 
 static void Tb_NameAdd(s32 c) {
     if (Tb_NameKey(c) && sTb->typedLen < 16) {
-        sTb->typed[sTb->typedLen++] = (char)c;
-        sTb->typed[sTb->typedLen] = 0;
+        if (sTb->mode == TB_WII_NAME) {
+            s32 i;
+            for (i = sTb->typedLen; i >= sTb->nameCursor; i--)
+                sTb->typed[i + 1] = sTb->typed[i];
+            sTb->typed[sTb->nameCursor++] = (char)c;
+            sTb->typedLen++;
+        } else {
+            sTb->typed[sTb->typedLen++] = (char)c;
+            sTb->typed[sTb->typedLen] = 0;
+        }
         Snd_PlaySe(1, 0);
     }
 }
 
 static void Tb_NameBack(void) {
-    if (sTb->typedLen > 0) {
+    if (sTb->mode == TB_WII_NAME && sTb->typedLen > 0) {
+        s32 i;
+        if (sTb->nameCursor > 0) sTb->nameCursor--;
+        for (i = sTb->nameCursor + 1; i <= sTb->typedLen; i++)
+            sTb->typed[i - 1] = sTb->typed[i];
+        sTb->typedLen--;
+        Snd_PlaySe(1, 2);
+    } else if (sTb->mode != TB_WII_NAME && sTb->typedLen > 0) {
         sTb->typed[--sTb->typedLen] = 0;
         Snd_PlaySe(1, 2);
+    }
+}
+
+/* The Data Center password keyboard has 14 columns, four rows, and three wide
+   buttons underneath: Quit, Case, Decide. Its side cells move the text cursor. */
+static s32 Tb_WiiNameKey(void) {
+    Pad *pad = &gPad[0];
+    s32 col = sTb->keyCol;
+    s32 row = sTb->keyRow;
+    s32 next;
+
+    if (pad->gameRepeat & (PADG_RIGHT | PADG_RIGHT2)) {
+        if (row == WII_KEY_ROWS) next = col < 4 ? 4 : col < 10 ? 10 : 0;
+        else if (row == 3 && col == 0) next = 2;
+        else if (row == 3 && col == 12) next = 0;
+        else next = (col + 1) % WII_KEY_COLS;
+        col = next;
+    } else if (pad->gameRepeat & (PADG_LEFT | PADG_LEFT2)) {
+        if (row == WII_KEY_ROWS) next = col < 4 ? 10 : col < 10 ? 0 : 4;
+        else if (row == 3 && col == 0) next = 12;
+        else if (row == 3 && col == 2) next = 0;
+        else next = (col + WII_KEY_COLS - 1) % WII_KEY_COLS;
+        col = next;
+    }
+    if (pad->gameRepeat & (PADG_DOWN | PADG_DOWN2)) row = (row + 1) % (WII_KEY_ROWS + 1);
+    else if (pad->gameRepeat & (PADG_UP | PADG_UP2)) row = (row + WII_KEY_ROWS) % (WII_KEY_ROWS + 1);
+    if (row == WII_KEY_ROWS) col = col < 4 ? 0 : col < 10 ? 4 : 10;
+    if (row == 3 && col == 1) col = 0;
+    if (row == 3 && col == 13) col = 12;
+    if (row != sTb->keyRow || col != sTb->keyCol) {
+        sTb->keyRow = row;
+        sTb->keyCol = col;
+        Snd_PlaySe(1, 0);
+        return 0;
+    }
+    sTb->keyRow = row;
+    sTb->keyCol = col;
+    if (!(pad->gamePressed & PADG_CROSS)) return 0;
+    Port_DcNamePress(sTb->lower, row, col);
+    if (row == WII_KEY_ROWS) return col == 0 ? -1 : col == 4 ? -2 : -3;
+    if ((row == 1 || row == 2) && col >= 12) return col == 12 ? -4 : -5;
+    if (row == 3 && col >= 12) return -6;
+    return Port_DcNameKey(sTb->lower, row, col);
+}
+
+static void Tb_WiiNameUpdate(s32 live) {
+    Pad *pad = &gPad[0];
+    s32 c, done = 0;
+
+    if (!live) return;
+    /* Match Data Center: shoulder buttons move the text cursor, Start selects
+       Decide, Triangle deletes (or leaves when empty), and Cross uses the
+       highlighted on-screen key. Physical typing is disabled for this mode. */
+    if (pad->gameRepeat & (PADG_L1 | PADG_L2)) {
+        if (sTb->nameCursor > 0) sTb->nameCursor--;
+    } else if (pad->gameRepeat & (PADG_R1 | PADG_R2)) {
+        if (sTb->nameCursor < sTb->typedLen) sTb->nameCursor++;
+    } else if (pad->gamePressed & PADG_CIRCLE) {
+        sTb->lower = !sTb->lower;
+        Snd_PlaySe(1, 1);
+    } else if (pad->gamePressed & PADG_START) {
+        sTb->keyRow = WII_KEY_ROWS;
+        sTb->keyCol = 10;
+        Snd_PlaySe(1, 1);
+    } else if (pad->gamePressed & PADG_TRIANGLE) {
+        if (sTb->typedLen == 0) done = -1;
+        else Tb_NameBack();
+    } else {
+        c = Tb_WiiNameKey();
+        if (c > 0) Tb_NameAdd(c);
+        else if (c == -1) done = -1;
+        else if (c == -2) {
+            sTb->lower = !sTb->lower;
+            Snd_PlaySe(1, 1);
+        } else if (c == -3) done = 1;
+        else if (c == -4 && sTb->nameCursor > 0) sTb->nameCursor--;
+        else if (c == -5 && sTb->nameCursor < sTb->typedLen) sTb->nameCursor++;
+        else if (c == -6) Tb_NameBack();
+    }
+    if (done == 1) {
+        while (sTb->typedLen > 0 && sTb->typed[sTb->typedLen - 1] == ' ')
+            sTb->typed[--sTb->typedLen] = 0;
+        if (sTb->typedLen > 0) {
+            Port_NetNameSave(sTb->typed);
+            Port_SettingTextSave("net_name", sTb->typed);
+            Port_SettingsWrite();
+            Tb_Note("PLAYER NAME SAVED");
+        } else {
+            Tb_Note("ENTER A PLAYER NAME");
+            return;
+        }
+        Snd_PlaySe(1, 1);
+        Tb_SetMode(TB_WII_SETTINGS);
+    } else if (done == -1) {
+        Snd_PlaySe(1, 2);
+        Tb_SetMode(TB_WII_SETTINGS);
     }
 }
 
@@ -1310,12 +1459,27 @@ static void Tb_Backdrop(void) {
     s32 i;
 
     if (sTb->wii && sTb->mode >= TB_WII_HOME && Port_WiiArtAvailable()) {
+        f32 cloudPhase = (f32)(sTb->frames % 1280) * 0.4f;
         /* Resource 1's eight 128x256 strips form the original 512x512 landscape. */
         for (i = 0; i < 8; i++) {
             f32 x = (f32)(i % 4) * 128.0f;
             f32 y = (f32)(i / 4) * 224.0f;
             Ps_SpriteScreen(TBO_WII_BG_0 + i, x, y, x + 128.0f, y + 224.0f,
                             0.0f, 0.0f, 1.0f, 1.0f, PS_PLAIN, 0x80);
+        }
+        /* The sky and river belong to the landscape, so keep them running
+           behind every Wii submenu. Adjacent cloud sheets wrap seamlessly
+           when the phase returns to zero. */
+        for (i = -1; i <= 1; i++) {
+            f32 x = 50.0f + (f32)i * 512.0f - cloudPhase;
+            Ps_SpriteScreen(TBO_WII_CLOUDS, x, 35.0f, x + 512.0f, 163.0f,
+                            0.0f, 0.0f, 1.0f, 1.0f, PS_PLAIN, 0x80);
+        }
+        for (i = 0; i < 2; i++) {
+            f32 glow = Tb_WiiMotionQuarter(TBO_WII_MOTION_SPARKLE_0 + i, sTb->frames * 3);
+            s32 alpha = (s32)(glow * 128.0f);
+            Ps_SpriteScreen(TBO_WII_SPARKLE_0 + i, 36.0f, 115.0f, 292.0f, 179.0f,
+                            0.0f, 0.0f, 1.0f, 1.0f, PS_PLAIN, alpha);
         }
         return;
     }
@@ -1340,6 +1504,21 @@ static f32 Tb_WiiIdleBob(s32 quarter, f32 height) {
     s32 phase = quarter % 400;
     return -cosf((f32)phase * (6.283185307f / 400.0f)) * height;
 }
+
+#define TB_WII_SUB_GIRU_W 200.0f
+#define TB_WII_SUB_GIRU_H 100.0f
+
+/* DragonNe section 0, Giru sprite fl_1 (source frames 30..59). */
+static const f32 sTbWiiGiruNameX[30] = {
+    184.05f, 168.70f, 153.25f, 137.70f, 122.45f, 107.35f, 92.10f, 76.65f, 60.85f, 44.85f,
+    29.55f, 15.10f, 1.40f, -12.05f, -26.25f, -41.70f, -57.85f, -74.05f, -89.85f, -104.45f,
+    -117.35f, -128.55f, -138.35f, -147.05f, -155.05f, -162.65f, -170.20f, -177.75f, -185.95f, -185.50f
+};
+static const f32 sTbWiiGiruNameY[30] = {
+    71.85f, 66.35f, 61.10f, 56.15f, 51.55f, 47.35f, 43.70f, 40.75f, 39.40f, 41.45f,
+    46.80f, 55.30f, 64.80f, 73.65f, 81.05f, 85.95f, 88.25f, 88.05f, 84.45f, 77.25f,
+    67.20f, 55.10f, 41.85f, 28.00f, 13.65f, -0.95f, -15.75f, -30.10f, -43.95f, -43.25f
+};
 
 static void Tb_DrawWiiHomeArt(void) {
     s32 i;
@@ -1370,14 +1549,6 @@ static void Tb_DrawWiiHomeArt(void) {
     /* The entrance plays at 3/4 speed. The idle bob has smooth turns at the
        same cadence, with independent Pan and Giru phases. */
 
-    Ps_SpriteScreen(TBO_WII_CLOUDS, 50.0f, 35.0f, 562.0f, 163.0f,
-                    0.0f, 0.0f, 1.0f, 1.0f, PS_PLAIN, 0x80);
-    for (i = 0; i < 2; i++) {
-        f32 glow = Tb_WiiMotionQuarter(TBO_WII_MOTION_SPARKLE_0 + i, sTb->frames * 3);
-        s32 alpha = (s32)(glow * 128.0f);
-        Ps_SpriteScreen(TBO_WII_SPARKLE_0 + i, 36.0f, 115.0f, 292.0f, 179.0f,
-                        0.0f, 0.0f, 1.0f, 1.0f, PS_PLAIN, alpha);
-    }
     {
         s32 pointing = sTb->wiiDialogTouched && sTb->wiiDialogLine != 1;
         s32 lipOpen = sTb->wiiDialogVoiceStarted && sTb->wiiDialogLine != 1 &&
@@ -1573,6 +1744,91 @@ static void Tb_DrawWii(void) {
             : sTb->mode == TB_WII_BATTLE ? sTb->wiiBattleCur : sTb->wiiSubCur;
     f32 y0 = count == 6 ? 75.0f : 114.0f;
 
+    if (sTb->mode == TB_WII_SETTINGS && Port_WiiArtAvailable()) {
+        f32 iconDx = 0.0f, iconDy = 0.0f, titleDx = 0.0f, titleDy = 0.0f;
+        f32 iconScaleX = 1.0f, iconScaleY = 1.0f, titleScaleX = 1.0f, titleScaleY = 1.0f;
+        f32 panStartX, panStartY, giruStartX, giruStartY, giruHover;
+        f32 radarScale = Tb_WiiMotionQuarter(TBO_WII_MOTION_RADAR_SCALE, sTb->frames * 3);
+        s32 iconAlpha = 0x80, titleAlpha = 0x80;
+
+        panStartX = Tb_WiiMotionQuarter(TBO_WII_MOTION_PAN_ENTRY_X, sTb->wiiHomeT * 3) + 11.95f;
+        panStartY = Tb_WiiIdleBob((sTb->frames * 3) % 2000, 6.0f);
+        giruStartX = 378.0f + Tb_WiiMotionQuarter(TBO_WII_MOTION_GIRU_X, sTb->wiiHomeT * 3)
+                     - 184.05f - 63.28f;
+        giruStartY = 233.0f + Tb_WiiMotionQuarter(TBO_WII_MOTION_GIRU_Y, sTb->wiiHomeT * 3)
+                     - 71.85f;
+        giruHover = Tb_WiiIdleBob(((sTb->frames * 3) + 500) % 2000, 4.5f);
+        /* Pan and Giru remain together on User Settings. Giru moves to the
+           name field only when the keyboard opens. */
+        {
+            s32 idleFrame = ((sTb->frames * 3) % 2000) / 4;
+            s32 pointing = sTb->wiiDialogTouched && sTb->wiiDialogLine != 1;
+            s32 lipOpen = sTb->wiiDialogVoiceStarted && sTb->wiiDialogLine != 1 &&
+                          sTb->wiiDialogT <= Port_WiiDialogDuration(sTb->wiiDialogLine, sTb->wiiDialogJapanese) &&
+                          Port_WiiDialogMouth(sTb->wiiDialogLine, sTb->wiiDialogT, sTb->wiiDialogJapanese);
+            s32 mouthShape = !lipOpen ? 0 : (sTb->wiiDialogT / 10 & 1) ? 1 : 2;
+            s32 blink = (idleFrame >= 80 && idleFrame < 88) ||
+                        (idleFrame >= 200 && idleFrame < 208) ||
+                        (idleFrame >= 320 && idleFrame < 328) ||
+                        (idleFrame >= 440 && idleFrame < 448);
+            f32 eyeX = (pointing ? 56.0f : 79.0f) + panStartX;
+            f32 eyeY = (pointing ? 158.0f : 176.0f) + panStartY;
+            f32 mouthX = (pointing ? 70.0f : 100.0f) + panStartX;
+            f32 mouthY = (pointing ? 183.0f : 197.0f) + panStartY;
+
+            Ps_SpriteScreen(pointing ? TBO_WII_PAN_POINT : TBO_WII_PAN,
+                            -13.0f + panStartX, 9.0f + panStartY,
+                            243.0f + panStartX, 521.0f + panStartY,
+                            0.0f, 0.0f, 1.0f, 1.0f, PS_PLAIN, 0x80);
+            if (blink)
+                Ps_SpriteScreen(pointing ? TBO_WII_PAN_POINT_EYES_CLOSED : TBO_WII_PAN_EYES_CLOSED,
+                                eyeX, eyeY, eyeX + 64.0f, eyeY + 32.0f,
+                                0.0f, 0.0f, 1.0f, 1.0f, PS_PLAIN, 0x80);
+            if (mouthShape != 2)
+                Ps_SpriteScreen(pointing ? (mouthShape ? TBO_WII_PAN_POINT_MOUTH_OPEN : TBO_WII_PAN_POINT_MOUTH_CLOSED)
+                                         : (mouthShape ? TBO_WII_PAN_MOUTH_OPEN : TBO_WII_PAN_MOUTH_CLOSED),
+                                mouthX, mouthY, mouthX + 32.0f, mouthY + 32.0f,
+                                0.0f, 0.0f, 1.0f, 1.0f, PS_PLAIN, 0x80);
+        }
+        Ps_SpriteScreen(TBO_WII_GIRU, giruStartX, giruStartY + giruHover,
+                        giruStartX + TB_WII_SUB_GIRU_W, giruStartY + giruHover + TB_WII_SUB_GIRU_H,
+                        1.0f, 0.0f, 0.0f, 1.0f, PS_PLAIN, 0x80);
+        Ps_SpriteScreen(TBO_WII_GIRU_EYE_DIM, giruStartX, giruStartY + giruHover,
+                        giruStartX + TB_WII_SUB_GIRU_W, giruStartY + giruHover + TB_WII_SUB_GIRU_H,
+                        1.0f, 0.0f, 0.0f, 1.0f, PS_PLAIN, 0x80);
+        IconWin_PortHeadingMotion(sTb->frames, &iconDx, &iconDy, &iconAlpha,
+                                  &iconScaleX, &iconScaleY, &titleDx, &titleDy,
+                                  &titleAlpha, &titleScaleX, &titleScaleY);
+        for (i = 0; i < 2; i++) {
+            f32 y = 103.0f + (f32)i * 48.0f;
+            s32 selected = i == sTb->wiiSubCur;
+
+            Ps_SpriteScreen(selected ? TBO_WII_BAR_GOLD : TBO_WII_BAR_BLUE,
+                            162.0f, y, 623.0f, y + 58.0f,
+                            0.0f, 0.0f, 1.0f, 1.0f, PS_PLAIN, 0x80);
+            Ps_SpriteScreen(selected ? TBO_WII_SETTINGS_LABEL_SELECTED : TBO_WII_SETTINGS_LABEL_IDLE,
+                            212.0f, y + 3.0f, 724.0f, y + 35.0f,
+                            0.0f, (f32)i * 0.5f, 1.0f, (f32)(i + 1) * 0.5f, PS_PLAIN, 0x80);
+        }
+        {
+            f32 radarY = 120.0f + (f32)sTb->wiiSubCur * 48.0f;
+            Ps_SpriteScreen(TBO_WII_RADAR, 196.0f - 32.0f * radarScale, radarY - 32.0f * radarScale,
+                            196.0f + 32.0f * radarScale, radarY + 32.0f * radarScale,
+                        0.0f, 0.0f, 1.0f, 1.0f, PS_PLAIN, 0x80);
+        }
+        Ps_SpriteScreen(TBO_WII_CREST, 45.0f + iconDx - 32.0f * iconScaleX,
+                        48.0f + iconDy - 32.0f * iconScaleY,
+                        45.0f + iconDx + 32.0f * iconScaleX,
+                        48.0f + iconDy + 32.0f * iconScaleY,
+                        0.0f, 0.0f, 1.0f, 1.0f, PS_PLAIN, iconAlpha);
+        Ps_SpriteScreen(TBO_WII_SETTINGS_TITLE, 62.0f + titleDx,
+                        17.0f + titleDy,
+                        62.0f + titleDx + 512.0f * titleScaleX,
+                        17.0f + titleDy + 64.0f * titleScaleY,
+                        0.0f, 0.0f, 1.0f, 1.0f, PS_PLAIN, titleAlpha);
+        return;
+    }
+
     Ps_Panel(TBO_KIT_WINDOW, 18.0f, y0 - 20.0f, 492.0f, y0 + 36.0f * (f32)count + 14.0f, 0x80);
     for (i = 0; i < count; i++) {
         f32 y = y0 + 36.0f * (f32)i;
@@ -1592,10 +1848,113 @@ static void Tb_DrawWiiText(void) {
                   : sTb->mode == TB_WII_SETTINGS ? sTbWiiSettingsName : sTbWiiRankingName;
     f32 y0 = count == 6 ? 75.0f : 114.0f;
 
+    if (sTb->mode == TB_WII_SETTINGS && Port_WiiArtAvailable()) return;
+
     for (i = 0; i < count; i++) {
         f32 y = y0 + 36.0f * (f32)i;
         Ps_Text(44.0f, Ps_TextTop(y + 15.0f, 0.72f), names[i], 0.72f, 420.0f, i == cur ? 1 : 0);
     }
+}
+
+/* The Wii name field is 80 pixels tall inside its border. Draw each 32-pixel
+   glyph on its middle line, and place the underline directly below that line.
+   The name begins at the Wii field's left inset, like the original editor. */
+static void Tb_DrawWiiNameText(f32 rise, s32 alpha) {
+    static const char symbols[] = "#$%&@!?-+*()";
+    s32 i;
+
+    for (i = 0; i < sTb->typedLen && i < 16; i++) {
+        char c = sTb->typed[i];
+        s32 page = 0, row, col, sx, sy;
+        f32 dx = 32.0f + (f32)i * 25.0f;
+
+        if (c == ' ') continue;
+        if (c >= 'a' && c <= 'z') {
+            c -= 'a' - 'A';
+            page = 1;
+        }
+        if (c >= 'A' && c <= 'N') {
+            row = 0;
+            col = c - 'A';
+            sx = 37 + col * 31 + (col >= 7 ? 10 : 0);
+        } else if (c >= 'O' && c <= 'Z') {
+            row = 1;
+            col = c - 'O';
+            sx = 32 + col * 31 + (col >= 7 ? 10 : 0);
+        } else if (c >= '0' && c <= '9') {
+            row = 3;
+            col = c - '0';
+            sx = 84 + col * 31 + (col >= 5 ? 10 : 0);
+        } else {
+            for (col = 0; symbols[col] != 0 && symbols[col] != c; col++) {}
+            if (symbols[col] == 0) col = 6;
+            row = 2;
+            sx = 27 + col * 31 + (col >= 7 ? 9 : 0);
+        }
+        sy = page * 128 + row * 32;
+        Ps_SpriteScreen(TBO_WII_NAME_GLYPHS, dx, 111.0f + rise,
+                        dx + 31.0f, 143.0f + rise,
+                        (f32)sx / 512.0f, (f32)sy / 256.0f,
+                        (f32)(sx + 31) / 512.0f, (f32)(sy + 32) / 256.0f,
+                        PS_PLAIN, alpha);
+    }
+    Ps_SpriteScreen(TBO_WII_NAME_CURSOR,
+                    32.0f + (f32)sTb->nameCursor * 25.0f, 117.0f + rise,
+                    64.0f + (f32)sTb->nameCursor * 25.0f, 149.0f + rise,
+                    0.0f, 0.0f, 1.0f, 1.0f, PS_PLAIN, alpha);
+}
+
+static void Tb_DrawWiiName(void) {
+    f32 in = (f32)sTb->modeT / 20.0f;
+    f32 rise, panX, panY, giruX, giruY, giruHover, turn, giruCx;
+    s32 giruFrame = sTb->modeT < 29 ? sTb->modeT : 29;
+    s32 alpha;
+
+    if (in > 1.0f) in = 1.0f;
+    if (in < 0.0f) in = 0.0f;
+    in = in * in * (3.0f - 2.0f * in);
+    /* The Wii nickname FOD brings every key up by 270 pixels over 16 frames. */
+    rise = sTb->modeT < 16 ? (f32)(16 - sTb->modeT) * 18.0f : 0.0f;
+    alpha = (s32)(128.0f * in);
+    /* Move the keyboard and name field together during the page entrance. */
+    Ps_SetShift(0.0f);
+    /* Data Center supplies the complete keyboard movie. Wii art supplies
+       the name field, title and hosts above it. */
+    /* The Wii sheet contains one side of this frame. Its straight edge is
+       the centre seam, so mirror it to keep both shaped corners intact. */
+    panX = Tb_WiiMotionQuarter(TBO_WII_MOTION_PAN_ENTRY_X, sTb->wiiHomeT * 3) + 11.95f;
+    panY = Tb_WiiIdleBob((sTb->frames * 3) % 2000, 6.0f);
+    if (in < 1.0f)
+        Ps_SpriteScreen(sTb->wiiDialogTouched && sTb->wiiDialogLine != 1 ? TBO_WII_PAN_POINT : TBO_WII_PAN,
+                        -13.0f + panX - 270.0f * in, 9.0f + panY,
+                        243.0f + panX - 270.0f * in, 521.0f + panY,
+                        0.0f, 0.0f, 1.0f, 1.0f, PS_PLAIN, 0x80);
+    giruHover = Tb_WiiIdleBob(((sTb->frames * 3) + 500) % 2000, 4.5f);
+    giruX = 378.0f + sTbWiiGiruNameX[giruFrame] - 184.05f;
+    /* The reversed home sprite needs the canvas offset. After Giru turns
+       toward the name field the texture is no longer reversed. */
+    giruX -= 63.28f * (giruFrame < 15 ? 1.0f : (f32)(29 - giruFrame) / 14.0f);
+    giruY = 233.0f + sTbWiiGiruNameY[giruFrame] - 71.85f
+            - 27.0f * (f32)giruFrame / 29.0f + giruHover;
+    turn = giruFrame < 15 ? 1.0f - (f32)giruFrame / 15.0f : (f32)(giruFrame - 15) / 14.0f;
+    if (turn < 0.02f) turn = 0.02f;
+    giruCx = giruX + TB_WII_SUB_GIRU_W * 0.5f;
+    Ps_SpriteScreen(TBO_WII_GIRU, giruCx - TB_WII_SUB_GIRU_W * turn * 0.5f, giruY,
+                    giruCx + TB_WII_SUB_GIRU_W * turn * 0.5f, giruY + TB_WII_SUB_GIRU_H,
+                    giruFrame < 15 ? 1.0f : 0.0f, 0.0f,
+                    giruFrame < 15 ? 0.0f : 1.0f, 1.0f, PS_PLAIN, 0x80);
+    Ps_SpriteScreen(TBO_WII_GIRU_EYE_DIM, giruCx - TB_WII_SUB_GIRU_W * turn * 0.5f, giruY,
+                    giruCx + TB_WII_SUB_GIRU_W * turn * 0.5f, giruY + TB_WII_SUB_GIRU_H,
+                    giruFrame < 15 ? 1.0f : 0.0f, 0.0f,
+                    giruFrame < 15 ? 0.0f : 1.0f, 1.0f, PS_PLAIN, 0x80);
+    /* Draw the frame at the source crop's native height. Its lower contour
+       meets the keyboard's upper contour without a doubled border. */
+    Port_DcNameDraw(sTb->lower, sTb->keyRow, sTb->keyCol, (s32)rise);
+    Ps_SpriteScreen(TBO_WII_NAME_INPUT_FRAME, 0.0f, 42.0f + rise, 256.0f, 186.0f + rise,
+                    0.0f, 100.0f / 256.0f, 1.0f, 245.0f / 256.0f, PS_PLAIN, alpha);
+    Ps_SpriteScreen(TBO_WII_NAME_INPUT_FRAME, 256.0f, 42.0f + rise, 512.0f, 186.0f + rise,
+                    1.0f, 100.0f / 256.0f, 0.0f, 245.0f / 256.0f, PS_PLAIN, alpha);
+    Tb_DrawWiiNameText(rise, alpha);
 }
 
 /* rows of label / value, as Create Room and Profile have them */
@@ -1872,19 +2231,18 @@ static char *Tb_Help(void) {
         return "Alright Giru! We're gonna go and find fighters we've never seen before!";
     case TB_WII_BATTLE:
         if (sTb->wiiDialogText[0]) return sTb->wiiDialogText;
-        return sTb->wiiBattleCur == 0 ? "Create a room for a custom battle and share its code."
-               : sTb->wiiBattleCur == 1 ? "Find a normal battle with Quick Match."
-               : sTb->wiiBattleCur == 2 ? "Join a friend's room with a PC room code."
-               : "This Wii server feature is not available on the PC service.";
+        return "";
     case TB_WII_FRIENDS:
         if (sTb->wiiDialogText[0]) return sTb->wiiDialogText;
-        return "Wii Friend Codes cannot connect to the PC matchmaking service.";
+        return "";
     case TB_WII_SETTINGS:
         if (sTb->wiiDialogText[0]) return sTb->wiiDialogText;
-        return sTb->wiiSubCur == 0 ? "Set the name your opponent sees." : "The Wii online save cannot be initialized in this port.";
+        return "";
+    case TB_WII_NAME:
+        return "";
     case TB_WII_RANKING:
         if (sTb->wiiDialogText[0]) return sTb->wiiDialogText;
-        return "The Wii ranking server is no longer part of this game's PC service.";
+        return "";
     case TB_HUB:
         return sTbHubSay[sTb->hubCur];
     case TB_CREATE:
@@ -1910,9 +2268,9 @@ static char *Tb_Help(void) {
 }
 
 /* Each page's title (by TB_ mode), as its heading shows it and the screen reader says it. */
-static char *sTbTitle[14] = {"Tenkaichi Budokai Online", "Create Room", "Join Room", "Searching", "Profile", "Profile", "Quick Match",
+static char *sTbTitle[15] = {"Tenkaichi Budokai Online", "Create Room", "Join Room", "Searching", "Profile", "Profile", "Quick Match",
                              "Train While Waiting", "Tenkaichi Budokai Online", "Dragon Net Battle", "Nintendo WFC Battle",
-                             "Manage Friends", "User Settings", "View Ranking"};
+                             "Manage Friends", "User Settings", "View Ranking", "Create Player Name"};
 
 /* ---- the screen reader (port/src/gs/a11y.c; silent unless the player has it on). The game's own screens are read
    from their state by port/src/a11y_game.c; these pages say what they show themselves: the page's title as it opens,
@@ -2016,6 +2374,19 @@ static void Tb_Speak(void) {
         break;
     case TB_NAME:
         Tb_KeyFocus(focus, NAME_ROWS, sTbNameKeys[sTb->lower], sTbNameBtn, 4);
+        Ps_Copy(now, sTb->typed, 40);
+        break;
+    case TB_WII_NAME:
+        if (sTb->keyRow == WII_KEY_ROWS)
+            Ps_Copy(focus, sTb->keyCol == 0 ? "Quit" : sTb->keyCol == 4 ? "Change case" : "Decide", 160);
+        else if ((sTb->keyRow == 1 || sTb->keyRow == 2) && sTb->keyCol >= 12)
+            Ps_Copy(focus, sTb->keyCol == 12 ? "Move text cursor left" : "Move text cursor right", 160);
+        else if (sTb->keyRow == 3 && sTb->keyCol >= 12)
+            Ps_Copy(focus, "Delete", 160);
+        else {
+            focus[0] = Port_DcNameKey(sTb->lower, sTb->keyRow, sTb->keyCol);
+            focus[1] = 0;
+        }
         Ps_Copy(now, sTb->typed, 40);
         break;
     case TB_WAIT:
@@ -2203,6 +2574,9 @@ static void Tb_Draw(void) {
     case TB_WII_RANKING:
         Tb_DrawWii();
         break;
+    case TB_WII_NAME:
+        Tb_DrawWiiName();
+        break;
     case TB_HUB:
         Tb_DrawHub();
         break;
@@ -2228,8 +2602,10 @@ static void Tb_Draw(void) {
         break;
     }
     Tb_PageIn(0);
-    Ps_Panel(TBO_KIT_WINDOW, 300.0f, 10.0f, 504.0f, 44.0f, 0x80); /* the player card: the name alone */
-    MsgWin_PortDrawString(Tb_BoxLine()); /* the game's box with the hosts' line (the buttons under it: Tb_DrawText) */
+    if (sTb->mode < TB_WII_HOME) /* the PC online pages' player card */
+        Ps_Panel(TBO_KIT_WINDOW, 300.0f, 10.0f, 504.0f, 44.0f, 0x80);
+    if (sTb->mode != TB_WII_NAME)
+        MsgWin_PortDrawString(Tb_BoxLine());
     if (sTb->mode == TB_BLOCK) {
         Tb_DrawBlock();
     }
@@ -2239,7 +2615,8 @@ static void Tb_DrawText(void) {
     char **title = sTbTitle;
 
     /* its capitals centred on the crest beside it (y 32); up to the player card */
-    Ps_Heading(Tb_TitleLeft() + 44.0f, Ps_TextTop(32.0f, 1.3f), title[sTb->mode], 1.3f, 248.0f, 0x80);
+    if (!(sTb->mode == TB_WII_NAME || (sTb->mode == TB_WII_SETTINGS && Port_WiiArtAvailable())))
+        Ps_Heading(Tb_TitleLeft() + 44.0f, Ps_TextTop(32.0f, 1.3f), title[sTb->mode], 1.3f, 248.0f, 0x80);
     Tb_PageIn(1);
     switch (sTb->mode) {
     case TB_WII_HOME:
@@ -2248,6 +2625,13 @@ static void Tb_DrawText(void) {
     case TB_WII_SETTINGS:
     case TB_WII_RANKING:
         Tb_DrawWiiText();
+        break;
+    case TB_WII_NAME:
+        {
+            f32 rise = sTb->modeT < 16 ? (f32)(16 - sTb->modeT) * 18.0f : 0.0f;
+            Ps_SpriteScreen(TBO_WII_NAME_TITLE, 0.0f, 46.0f + rise, 512.0f, 110.0f + rise,
+                        0.0f, 0.0f, 1.0f, 1.0f, PS_PLAIN, 0x80);
+        }
         break;
     case TB_HUB:
         Tb_DrawHubText();
@@ -2276,7 +2660,8 @@ static void Tb_DrawText(void) {
     Tb_PageIn(0);
     /* (no status and no title under it: "ONLINE" was not whether the game is connected, and the title is the
        screen's heading) */
-    Ps_Text(322.0f, Ps_TextTop(27.0f, 0.6f), (char *)Port_NetNameGet(), 0.6f, 166.0f, 1);
+    if (sTb->mode < TB_WII_HOME)
+        Ps_Text(322.0f, Ps_TextTop(27.0f, 0.6f), (char *)Port_NetNameGet(), 0.6f, 166.0f, 1);
     if (sTb->mode == TB_BLOCK) {
         Tb_DrawBlockText();
     }
@@ -2285,7 +2670,7 @@ static void Tb_DrawText(void) {
         Tb_DrawName();
         Tb_PageIn(0);
     }
-    if (sTb->note > 0) {
+    if (sTb->note > 0 && sTb->mode != TB_WII_NAME && sTb->mode != TB_WII_SETTINGS) {
         s32 a = sTb->note > 16 ? 0x80 : sTb->note * 8;
 
         Ps_Align(1);
@@ -2375,6 +2760,9 @@ s32 PortTbo_Run(void) {
         case TB_WII_RANKING:
             Tb_WiiUpdate(live);
             break;
+        case TB_WII_NAME:
+            Tb_WiiNameUpdate(live);
+            break;
         case TB_HUB:
             Tb_HubUpdate(live);
             break;
@@ -2410,10 +2798,11 @@ s32 PortTbo_Run(void) {
             IconWin_Draw(); /* the original corner scrollwork and title underline */
             Tb_DrawWiiHomeArt();
         } else {
-            IconWin_Draw(); /* the clouds in the corners, the emblem, the line under the title */
+            if (sTb->mode != TB_WII_NAME) IconWin_Draw();
             Tb_Draw();
             Tb_DrawText();
-            Ps_PromptsDraw();
+            if (sTb->mode != TB_WII_NAME && sTb->mode != TB_WII_SETTINGS)
+                Ps_PromptsDraw();
         }
         ColorFade_Draw();
         File_Stub264D90();
@@ -2433,6 +2822,7 @@ s32 PortTbo_Run(void) {
     }
     sceGsSyncPath(0, 0);
     if (sTb->wiiDialogStarted) Voice_Stop(0);
+    Port_DcNameClose();
     Port_EscQuit(1);
     Port_TextMode(0);
     Tb_WinTerm();

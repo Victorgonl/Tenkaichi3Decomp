@@ -1098,6 +1098,85 @@ void Flash_Draw(Flash *flash) {
     }
 }
 
+#ifdef PORT
+typedef struct PortFlashHiddenSlot {
+    FlashSlot *slot;
+    FlashSlot contents;
+} PortFlashHiddenSlot;
+
+static PortFlashHiddenSlot *sPortFlashHidden;
+static s32 sPortFlashHiddenCap;
+
+static s32 Port_FlashIsInputClip(char *name) {
+    return strncmp(name, "mc_input_code_", 14) == 0 || strcmp(name, "mc_text_keyboard") == 0;
+}
+
+/* Mask unrelated movie depths only for this draw. The password screen has
+   unnamed shapes, so hiding its named decoration clips leaves those shapes
+   (including the old title) visible. Restoring slots lets timelines advance. */
+static s32 Port_FlashMaskInput(FlashTl *tl, s32 *count, s32 root) {
+    s32 i, kept = 0;
+
+    for (i = 0; i < tl->depths; i++) {
+        FlashSlot *slot = &tl->slots[i];
+        FlashSlot before = *slot;
+
+        if (slot->clip != NULL) {
+            if (Port_FlashIsInputClip(slot->clip->name)) {
+                kept = 1;
+            } else if (Port_FlashMaskInput(&slot->clip->tl, count, 0)) {
+                kept = 1;
+            } else {
+                slot->clip = NULL;
+            }
+        }
+        /* Password Input root shapes 7 and 9 are the keyboard backing and
+           delete mark. Keep their original placement with the key clips. */
+        if (root && slot->shape != NULL && (slot->shape->id == 7 || slot->shape->id == 9))
+            kept = 1;
+        else
+            slot->shape = NULL;
+        if (before.clip != slot->clip || before.shape != slot->shape) {
+            if (*count < sPortFlashHiddenCap) {
+                sPortFlashHidden[*count].slot = slot;
+                sPortFlashHidden[*count].contents = before;
+                (*count)++;
+            } else {
+                *slot = before;
+            }
+        }
+    }
+    return kept;
+}
+
+s32 Port_FlashInputOnlyInit(Flash *flash) {
+    s32 i;
+    sPortFlashHiddenCap = flash->root->depths;
+    for (i = 0; i < flash->clips->count; i++)
+        sPortFlashHiddenCap += flash->clips->items[i].tl.depths;
+    if (sPortFlashHiddenCap == 0) return 0;
+    sPortFlashHidden = Heap_Alloc(sizeof(*sPortFlashHidden) * sPortFlashHiddenCap, 0x20, 0, 2);
+    return sPortFlashHidden != NULL;
+}
+
+void Port_FlashInputOnlyTerm(void) {
+    if (sPortFlashHidden != NULL) Heap_Free(sPortFlashHidden);
+    sPortFlashHidden = NULL;
+    sPortFlashHiddenCap = 0;
+}
+
+void Port_FlashInputOnlyDraw(Flash *flash) {
+    s32 count = 0;
+    if (sPortFlashHidden == NULL) return;
+    Port_FlashMaskInput(flash->root, &count, 1);
+    Flash_Draw(flash);
+    while (count > 0) {
+        count--;
+        *sPortFlashHidden[count].slot = sPortFlashHidden[count].contents;
+    }
+}
+#endif
+
 /* Back to the first frame, playing, every other flag cleared. Unless `keepClips`, every sprite instance and
    shape is cleared as well. */
 void Flash_Reset(Flash *flash, s32 keepClips) {

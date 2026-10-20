@@ -55,7 +55,19 @@
     X(TBO_WII_CREST, "wii_crest") \
     X(TBO_WII_TITLE, "wii_title") \
     X(TBO_WII_LABEL_SELECTED, "wii_label_selected") \
-    X(TBO_WII_LABEL_IDLE, "wii_label_idle")
+    X(TBO_WII_LABEL_IDLE, "wii_label_idle") \
+    X(TBO_WII_SETTINGS_LABEL_SELECTED, "wii_settings_label_selected") \
+    X(TBO_WII_SETTINGS_LABEL_IDLE, "wii_settings_label_idle") \
+    X(TBO_WII_NAME_TITLE, "wii_name_title") \
+    X(TBO_WII_NAME_BUTTON_LABELS, "wii_name_button_labels") \
+    X(TBO_WII_NAME_KEYBOARD, "wii_name_keyboard") \
+    X(TBO_WII_NAME_GLYPHS, "wii_name_glyphs") \
+    X(TBO_WII_NAME_KEY_HIGHLIGHT, "wii_name_key_highlight") \
+    X(TBO_WII_NAME_KEY_WIDE_HIGHLIGHT, "wii_name_key_wide_highlight") \
+    X(TBO_WII_NAME_DELETE_X, "wii_name_delete_x") \
+    X(TBO_WII_NAME_CURSOR, "wii_name_cursor") \
+    X(TBO_WII_NAME_INPUT_FRAME, "wii_name_input_frame") \
+    X(TBO_WII_SETTINGS_TITLE, "wii_settings_title")
 
 #define TBO_ART_ENUM(id, name) id,
 enum { TBO_ART_LIST(TBO_ART_ENUM) TBO_ART_COUNT };
