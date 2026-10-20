@@ -2,7 +2,8 @@
 
 With the Wii assets extracted, the PS2 main-menu plate **Dragon Net Battle** opens the Wii mode's top-level choices
 in the port's screen mode. Without those assets, it opens the PC online window over the main menu as before.
-Nintendo WFC Battle opens the PC online window over the Wii menu, like the F1 settings window.
+Nintendo WFC Battle opens its Wii battle menu. Its six entries can be focused and play the selection sound,
+but none starts a mode while these services are unavailable.
 The separate **Tenkaichi Budokai Online** plate still opens its in-game hub.
 Manage Friends and Initialize Wi-Fi Data stay in the menu with a dimmed appearance when unfocused. Both can
 receive focus and play the selection sound, but they do not open a screen because their online services are
@@ -81,8 +82,11 @@ mouth animation for either pose: the body texture supplies the widest mouth, the
 the second overlay is closed. The recorded lip track chooses speaking or a pause; the two speaking shapes alternate
 while it is open. Giru's dim eye is used while idle and his bright eye follows his own lip track.
 The home scene speaks Pan's introduction and Giru's reply. Moving the cursor speaks the original description of the
-selected option. The lower Wii menu pages use their original spoken descriptions too. Pan's mouth and Giru's eye
+selected option. The other lower Wii menu pages use their original spoken descriptions too. Pan's mouth and Giru's eye
 variants come from the same Wii art pack and change on their recorded lip events. The existing game message window
-displays the extracted line. A screenshot is useful
-for comparison but is not loaded by the port. Lower Wii menu pages currently use the port's drawn UI over the
-decoded landscape.
+displays the extracted line. A screenshot is useful for comparison but is not loaded by the port. The Nintendo WFC
+Battle page uses section 1's clock background, six blue and gold bars, label sheets, title, and Giru pose. It opens
+after a fade; Giru enters from the left at the name editor's size, and the title and crest play their header
+animation after the fade. Pan does not appear or speak on this page. The battle entries sit below the header and
+show neutral descriptions without character dialogue. The other lower Wii menu pages currently use the port's
+drawn UI over the decoded landscape.

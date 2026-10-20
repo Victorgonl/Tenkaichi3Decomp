@@ -44,6 +44,17 @@ WII_NESTED = {
     "wii_name_cursor": (13, 1, 10),
     "wii_name_input_frame": (13, 1, 9),
 }
+WII_BATTLE = {
+    "wii_battle_title": (4, 1),
+    "wii_battle_bar_blue": (3, 26),
+    "wii_battle_bar_gold": (3, 27),
+    "wii_battle_label_idle": (3, 29),
+    "wii_battle_label_selected": (3, 30),
+    "wii_battle_giru": (2, 0),
+    "wii_battle_giru_eye_bright": (2, 1),
+    "wii_battle_giru_eye_dim": (2, 2),
+}
+WII_BATTLE.update({f"wii_battle_bg_{i}": (1, i) for i in range(8)})
 
 
 def png_size(path):
@@ -72,6 +83,9 @@ def main():
         elif name in WII_NESTED:
             resource, part, texture = WII_NESTED[name]
             w, h = png_size(ROOT / f"gamedata/dragon-net-battle/section-00/resource-{resource:03}-part-{part:02}-textures/texture-{texture:03}.png")
+        elif name in WII_BATTLE:
+            resource, texture = WII_BATTLE[name]
+            w, h = png_size(ROOT / f"gamedata/dragon-net-battle/section-01/resource-{resource:03}-textures/texture-{texture:03}.png")
         elif name in old:
             w, h = old[name][:2]
         else:

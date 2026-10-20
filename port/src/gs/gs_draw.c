@@ -559,8 +559,8 @@ static GsTex tbo_texture(uint32_t id) {
     GsTex *cached;
     unsigned char *missing;
     int languageArt = id >= TBO_LANG_BG && id <= TBO_LANG_ARROW_RIGHT;
-    int wiiArt = id >= TBO_WII_BG_0 && id <= TBO_WII_SETTINGS_TITLE;
-    int wiiResource = 0, wiiTexture = 0, wiiPart = -1;
+    int wiiArt = id >= TBO_WII_BG_0 && id <= TBO_WII_BATTLE_GIRU_EYE_DIM;
+    int wiiSection = 0, wiiResource = 0, wiiTexture = 0, wiiPart = -1;
 
     if (id >= TBO_TEXT_BASE && id < TBO_TEXT_BASE + TBO_TEXT_SLOTS) {
         return tbo_text_texture(id);
@@ -614,6 +614,17 @@ static GsTex tbo_texture(uint32_t id) {
         else if (id == TBO_WII_NAME_CURSOR) { wiiResource = 13; wiiPart = 1; wiiTexture = 10; }
         else if (id == TBO_WII_NAME_INPUT_FRAME) { wiiResource = 13; wiiPart = 1; wiiTexture = 9; }
         else if (id == TBO_WII_SETTINGS_TITLE) { wiiResource = 4; wiiTexture = 3; }
+        else if (id == TBO_WII_BATTLE_TITLE) { wiiSection = 1; wiiResource = 4; wiiTexture = 1; }
+        else if (id == TBO_WII_BATTLE_BAR_BLUE) { wiiSection = 1; wiiResource = 3; wiiTexture = 26; }
+        else if (id == TBO_WII_BATTLE_BAR_GOLD) { wiiSection = 1; wiiResource = 3; wiiTexture = 27; }
+        else if (id == TBO_WII_BATTLE_LABEL_IDLE) { wiiSection = 1; wiiResource = 3; wiiTexture = 29; }
+        else if (id == TBO_WII_BATTLE_LABEL_SELECTED) { wiiSection = 1; wiiResource = 3; wiiTexture = 30; }
+        else if (id >= TBO_WII_BATTLE_BG_0 && id <= TBO_WII_BATTLE_BG_7) {
+            wiiSection = 1; wiiResource = 1; wiiTexture = id - TBO_WII_BATTLE_BG_0;
+        }
+        else if (id >= TBO_WII_BATTLE_GIRU && id <= TBO_WII_BATTLE_GIRU_EYE_DIM) {
+            wiiSection = 1; wiiResource = 2; wiiTexture = id - TBO_WII_BATTLE_GIRU;
+        }
         else { wiiResource = 5; wiiTexture = 3; }
         base = SDL_GetBasePath();
         png = NULL;
@@ -648,28 +659,28 @@ static GsTex tbo_texture(uint32_t id) {
         }
         if (png == NULL) {
             if (wiiPart >= 0)
-                snprintf(path, sizeof(path), "%sgamedata/dragon-net-battle/section-00/resource-%03d-part-%02d-textures/texture-%03d.png",
-                         base != NULL ? base : "", wiiResource, wiiPart, wiiTexture);
+                snprintf(path, sizeof(path), "%sgamedata/dragon-net-battle/section-%02d/resource-%03d-part-%02d-textures/texture-%03d.png",
+                         base != NULL ? base : "", wiiSection, wiiResource, wiiPart, wiiTexture);
             else
-                snprintf(path, sizeof(path), "%sgamedata/dragon-net-battle/section-00/resource-%03d-textures/texture-%03d.png",
-                         base != NULL ? base : "", wiiResource, wiiTexture);
+                snprintf(path, sizeof(path), "%sgamedata/dragon-net-battle/section-%02d/resource-%03d-textures/texture-%03d.png",
+                         base != NULL ? base : "", wiiSection, wiiResource, wiiTexture);
             png = SDL_LoadPNG(path);
             if (png == NULL && base != NULL) {
                 if (wiiPart >= 0)
-                    snprintf(path, sizeof(path), "%s../../gamedata/dragon-net-battle/section-00/resource-%03d-part-%02d-textures/texture-%03d.png",
-                             base, wiiResource, wiiPart, wiiTexture);
+                    snprintf(path, sizeof(path), "%s../../gamedata/dragon-net-battle/section-%02d/resource-%03d-part-%02d-textures/texture-%03d.png",
+                             base, wiiSection, wiiResource, wiiPart, wiiTexture);
                 else
-                    snprintf(path, sizeof(path), "%s../../gamedata/dragon-net-battle/section-00/resource-%03d-textures/texture-%03d.png",
-                             base, wiiResource, wiiTexture);
+                    snprintf(path, sizeof(path), "%s../../gamedata/dragon-net-battle/section-%02d/resource-%03d-textures/texture-%03d.png",
+                             base, wiiSection, wiiResource, wiiTexture);
                 png = SDL_LoadPNG(path);
             }
         }
         if (png == NULL) {
             if (wiiPart >= 0)
-                snprintf(path, sizeof(path), "gamedata/dragon-net-battle/section-00/resource-%03d-part-%02d-textures/texture-%03d.png",
-                         wiiResource, wiiPart, wiiTexture);
+                snprintf(path, sizeof(path), "gamedata/dragon-net-battle/section-%02d/resource-%03d-part-%02d-textures/texture-%03d.png",
+                         wiiSection, wiiResource, wiiPart, wiiTexture);
             else
-                snprintf(path, sizeof(path), "gamedata/dragon-net-battle/section-00/resource-%03d-textures/texture-%03d.png", wiiResource, wiiTexture);
+                snprintf(path, sizeof(path), "gamedata/dragon-net-battle/section-%02d/resource-%03d-textures/texture-%03d.png", wiiSection, wiiResource, wiiTexture);
             png = SDL_LoadPNG(path);
         }
     } else {

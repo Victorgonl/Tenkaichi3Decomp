@@ -67,7 +67,23 @@
     X(TBO_WII_NAME_DELETE_X, "wii_name_delete_x") \
     X(TBO_WII_NAME_CURSOR, "wii_name_cursor") \
     X(TBO_WII_NAME_INPUT_FRAME, "wii_name_input_frame") \
-    X(TBO_WII_SETTINGS_TITLE, "wii_settings_title")
+    X(TBO_WII_SETTINGS_TITLE, "wii_settings_title") \
+    X(TBO_WII_BATTLE_TITLE, "wii_battle_title") \
+    X(TBO_WII_BATTLE_BAR_BLUE, "wii_battle_bar_blue") \
+    X(TBO_WII_BATTLE_BAR_GOLD, "wii_battle_bar_gold") \
+    X(TBO_WII_BATTLE_LABEL_IDLE, "wii_battle_label_idle") \
+    X(TBO_WII_BATTLE_LABEL_SELECTED, "wii_battle_label_selected") \
+    X(TBO_WII_BATTLE_BG_0, "wii_battle_bg_0") \
+    X(TBO_WII_BATTLE_BG_1, "wii_battle_bg_1") \
+    X(TBO_WII_BATTLE_BG_2, "wii_battle_bg_2") \
+    X(TBO_WII_BATTLE_BG_3, "wii_battle_bg_3") \
+    X(TBO_WII_BATTLE_BG_4, "wii_battle_bg_4") \
+    X(TBO_WII_BATTLE_BG_5, "wii_battle_bg_5") \
+    X(TBO_WII_BATTLE_BG_6, "wii_battle_bg_6") \
+    X(TBO_WII_BATTLE_BG_7, "wii_battle_bg_7") \
+    X(TBO_WII_BATTLE_GIRU, "wii_battle_giru") \
+    X(TBO_WII_BATTLE_GIRU_EYE_BRIGHT, "wii_battle_giru_eye_bright") \
+    X(TBO_WII_BATTLE_GIRU_EYE_DIM, "wii_battle_giru_eye_dim")
 
 #define TBO_ART_ENUM(id, name) id,
 enum { TBO_ART_LIST(TBO_ART_ENUM) TBO_ART_COUNT };

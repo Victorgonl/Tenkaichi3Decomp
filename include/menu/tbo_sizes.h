@@ -66,6 +66,22 @@ static const u16 sTboSize[TBO_ART_COUNT][3] = {
     {32, 32, 0}, /* wii_name_cursor */
     {256, 256, 0}, /* wii_name_input_frame */
     {512, 64, 0}, /* wii_settings_title */
+    {512, 64, 0}, /* wii_battle_title */
+    {512, 64, 0}, /* wii_battle_bar_blue */
+    {512, 64, 0}, /* wii_battle_bar_gold */
+    {512, 256, 0}, /* wii_battle_label_idle */
+    {512, 256, 0}, /* wii_battle_label_selected */
+    {128, 256, 0}, /* wii_battle_bg_0 */
+    {128, 256, 0}, /* wii_battle_bg_1 */
+    {128, 256, 0}, /* wii_battle_bg_2 */
+    {128, 256, 0}, /* wii_battle_bg_3 */
+    {128, 256, 0}, /* wii_battle_bg_4 */
+    {128, 256, 0}, /* wii_battle_bg_5 */
+    {128, 256, 0}, /* wii_battle_bg_6 */
+    {128, 256, 0}, /* wii_battle_bg_7 */
+    {256, 128, 0}, /* wii_battle_giru */
+    {256, 128, 0}, /* wii_battle_giru_eye_bright */
+    {256, 128, 0}, /* wii_battle_giru_eye_dim */
 };
 
 #endif
