@@ -85,6 +85,15 @@ static const u16 sTboSize[TBO_ART_COUNT][3] = {
     {256, 128, 0}, /* wii_battle_point_panel */
     {256, 64, 0}, /* wii_battle_point_label */
     {128, 128, 0}, /* wii_battle_point_digits */
+    {512, 64, 0}, /* wii_custom_title */
 };
+
+/* First-row alpha bounds, x0/y0 inclusive and x1/y1 exclusive, in the Wii label sheets. */
+static const u16 sTboWiiBattleLabelRow0[2][4] = {
+    {2, 1, 173, 29}, /* wii_battle_label_idle row 0 */
+    {2, 1, 173, 28}, /* wii_battle_label_selected row 0 */
+};
+/* Light-gray letter fill inside the idle row, excluding its purple outline. */
+static const u16 sTboWiiBattleLabelFillRow0[4] = {5, 4, 166, 23};
 
 #endif

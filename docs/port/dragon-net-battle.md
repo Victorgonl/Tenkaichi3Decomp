@@ -2,8 +2,10 @@
 
 With the Wii assets extracted, the PS2 main-menu plate **Dragon Net Battle** opens the Wii mode's top-level choices
 in the port's screen mode. Without those assets, it opens the PC online window over the main menu as before.
-Nintendo WFC Battle opens its Wii battle menu. Its six entries can be focused and play the selection sound,
-but none starts a mode while these services are unavailable.
+Nintendo WFC Battle opens its Wii battle menu. Custom Battle opens a matching page with **1 VS 1 Battle**,
+**Team Battle**, **Team 10 DP Battle**, **Team 15 DP Battle**, and **Team 20 DP Battle**. These five entries can be
+focused but do not start a match yet. The other five battle entries
+remain unavailable.
 The separate **Tenkaichi Budokai Online** plate still opens its in-game hub.
 Manage Friends and Initialize Wi-Fi Data stay in the menu with a dimmed appearance when unfocused. Both can
 receive focus and play the selection sound, but they do not open a screen because their online services are
@@ -91,3 +93,13 @@ animation after the fade. Pan does not appear or speak on this page. The battle 
 show neutral descriptions without character dialogue. The other lower Wii menu pages currently use the port's
 drawn UI over the decoded landscape.
 Focusing Ranking Battle or View Ranking shows the Wii Fighting Point panel on the left with `0000` as a placeholder.
+The Custom Battle page uses the extracted Wii title and the battle page's clock, Giru, bars, cursor, and fade.
+Its first option starts at the same vertical position as the first option on the preceding battle page.
+On both battle pages, each lower option starts 10.5 screen units farther right, following the original Wii menu's
+stair-step layout; the radar cursor follows the selected row's horizontal position.
+The five option labels use the configured Menu font because this extraction has no matching Wii label sheet.
+`tbo_sizes.py` measures the first row of the preceding battle page's idle and selected label textures and writes
+their bounds into `tbo_sizes.h`. Custom Battle uses the outline's left edge for position and the interior fill's
+height for font size; scaling the fill to the full outline height made the text too tall. Focused text
+uses the same orange palette as the Versus Duel Menu, and unfocused text uses its purple palette. The Wii bars use
+screen coordinates, so the font's page coordinates are converted before drawing to keep the two aligned on wide displays.
