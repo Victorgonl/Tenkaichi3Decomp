@@ -3,12 +3,22 @@
 With the Wii assets extracted, the PS2 main-menu plate **Dragon Net Battle** opens the Wii mode's top-level choices
 in the port's screen mode. Without those assets, it opens the PC online window over the main menu as before.
 Nintendo WFC Battle opens its Wii battle menu. Custom Battle opens a matching page with **1 VS 1 Battle**,
-**Team Battle**, **10 DP Team Battle**, **15 DP Team Battle**, and **20 DP Team Battle**. Any of these entries opens
-the Wii opponent-search screen as a visual placeholder; no matchmaking or battle starts.
-Triangle returns to Custom Battle. Friend Battle keeps its original label and disabled appearance in
+**Team Battle**, **10 DP Team Battle**, **15 DP Team Battle**, and **20 DP Team Battle**. Each entry opens
+the Wii opponent-search screen with its matching battle rules.
+When another player is found, the VS screen shows both player names and "Opponent found!" for about three seconds
+before the existing online session launcher starts the battle. Triangle cancels
+the search and returns to Custom Battle. Friend Battle keeps its original label and disabled appearance in
 the main battle menu; it does not open a screen. The Custom Battle option and all five submenu entries
 use their normal, enabled colors. The opponent-search screen alone uses the Custom Battle header.
 Normal Battle, Ranking Battle, View Ranking, and Battle Record remain unavailable.
+By default, these entries use the existing direct lobby and battle session, with no matchmaking Worker, build
+key, or internet connection. The first copy on one computer hosts on UDP port 25443; a second copy on that
+computer joins over loopback. For two computers on a LAN, start the host with `BT3_LAN=host` and the other with
+`BT3_LAN=join:<host IPv4 address>`, then choose the same entry on both. Allow UDP port 25443 through the host's
+firewall. The direct LAN greeting includes the selected battle mode; different entries stay in search instead of
+starting a match. Set `BT3_LAN=online` to use the public quick-match queues (S, T, D10, D15, D20); that service may
+require an official signed release. Alternatively, test those queues with your own Worker via `BT3_MATCH_URL`; see
+[the Worker setup](../../port/matchmaking/README.md).
 The separate **Tenkaichi Budokai Online** plate still opens its in-game hub.
 Manage Friends and Initialize Wi-Fi Data stay in the menu with a dimmed appearance when unfocused. Both can
 receive focus and play the selection sound, but they do not open a screen because their online services are
@@ -98,7 +108,7 @@ drawn UI over the decoded landscape.
 Focusing Ranking Battle or View Ranking shows the Wii Fighting Point panel on the left with `0000` as a placeholder.
 The Custom Battle page uses the extracted Wii title and the battle page's clock, Giru, bars, cursor, and fade.
 Its first option starts at the same vertical position as the first option on the preceding battle page.
-The opponent-search placeholder uses section 1 resource 3's blue and red VS panel halves and VS emblem,
+The opponent-search screen uses section 1 resource 3's blue and red VS panel halves and VS emblem,
 resource 4's Custom Battle title, and the same clock background. Giru enters fully on screen at the lower left after the fade.
 The saved player name is centered in the blue panel using the game's native message-window font.
 On both battle pages, each lower option starts 10.5 screen units farther right, following the original Wii menu's

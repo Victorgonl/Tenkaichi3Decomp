@@ -1655,6 +1655,10 @@ static int sLobby; /* 0 idle, 1 waiting, 2 found, -1 failed */
 static int sLobbyRole, sLobbyPort;
 static char sLobbyAddr[128];
 static uint64_t sLobbyLast;
+static int sLanMode, sLanQueue;
+static char sLobbyPeerName[NAME_LEN];
+
+const char *Port_LobbyPeerName(void) { return sLobbyPeerName; }
 
 /* Room codes (net_match.c, port/matchmaking): the lobby's states 3 (asking the matchmaking service; the host's code
    is known at some point, Port_LobbyCode) and, once the other player's addresses are known, 1 as with an address:
@@ -1697,6 +1701,8 @@ int Port_LobbyStart(int host, const char *address, int port) {
     fcntl(sSock, F_SETFL, fcntl(sSock, F_GETFL, 0) | O_NONBLOCK);
 #endif
     sCodeMode = 0;
+    sLanMode = 0;
+    sLobbyPeerName[0] = '\0';
     sCodeVia = 0;
     sCodeLocalPort = 0;
     sCodePunchSet = 0;
@@ -1728,6 +1734,16 @@ int Port_LobbyStart(int host, const char *address, int port) {
         }
     }
     return sLobby;
+}
+
+/* Direct Wii Custom Battle on a LAN: exchange the queue and names before accepting a peer. */
+int Port_LobbyStartLan(int host, const char *address, int port, int queue) {
+    int state = Port_LobbyStart(host, address, port);
+    if (state > 0 && queue >= 0 && queue < MATCH_QUEUES) {
+        sLanQueue = queue;
+        sLanMode = 1;
+    }
+    return state;
 }
 
 static int sQuickQueue = -1; /* Port_LobbyStartQuick: the search that Port_LobbyStartCode starts is a quick match in this queue */
@@ -1787,6 +1803,8 @@ void Port_LobbyCancel(void) {
         sSock = -1;
     }
     sLobby = 0;
+    sLanMode = 0;
+    sLobbyPeerName[0] = '\0';
 }
 
 /* The other player's addresses as the matchmaking service gave them: where to knock, which of them is the host's
@@ -1864,6 +1882,7 @@ int Port_LobbyPoll(void) {
             snprintf(sCodeError, sizeof(sCodeError), "%s", st.error);
             sLobby = -3;
         } else if (st.state == 3) {
+            snprintf(sLobbyPeerName, sizeof(sLobbyPeerName), "%s", st.peerName);
             lobby_take_addrs(&st);
             sCodeGen = st.addrGen;
             sCodeRelayGen = st.relayGen;
@@ -1912,8 +1931,9 @@ int Port_LobbyPoll(void) {
             return sLobby;
         }
     } else if (!sCodeMode && sLobbyRole == 2 && now - sLobbyLast > 200000000ull) {
-        uint32_t hello[3] = {MAGIC, T_HELLO, NET_VERSION};
-        net_send(hello, sizeof(hello), &sPeer);
+        uint32_t hello[4 + NAME_LEN / 4] = {MAGIC, T_HELLO, NET_VERSION, (uint32_t)sLanQueue};
+        if (sLanMode) snprintf((char *)&hello[4], NAME_LEN, "%s", sMyName);
+        net_send(hello, sLanMode ? sizeof(hello) : 12, &sPeer);
         sLobbyLast = now;
     }
     while ((n = net_recv(pkt, (int)sizeof(pkt), &from)) >= 8) {
@@ -1926,10 +1946,19 @@ int Port_LobbyPoll(void) {
         if (sLobbyRole == 1 && type == T_HELLO && !(n >= 12 && memcmp(pkt + 8, &kVersion, 4) == 0)) {
             sLobbyOther = 1; /* someone with another release is trying: the window says so, and goes on waiting */
         } else if (sLobbyRole == 1 && type == T_HELLO) {
-            uint32_t ack[3] = {MAGIC, T_HELLO_ACK, NET_VERSION};
+            uint32_t ack[4 + NAME_LEN / 4] = {MAGIC, T_HELLO_ACK, NET_VERSION, (uint32_t)sLanQueue};
             int k;
+            if (sLanMode) {
+                uint32_t queue;
+                if (n < (int)(16 + NAME_LEN)) continue;
+                memcpy(&queue, pkt + 12, sizeof(queue));
+                if (queue != (uint32_t)sLanQueue) continue;
+                memcpy(sLobbyPeerName, pkt + 16, NAME_LEN);
+                sLobbyPeerName[NAME_LEN - 1] = '\0';
+                snprintf((char *)&ack[4], NAME_LEN, "%s", sMyName);
+            }
             for (k = 0; k < 3; k++) {
-                net_send(ack, sizeof(ack), &from);
+                net_send(ack, sLanMode ? sizeof(ack) : 12, &from);
             }
             if (sCodeMode) { /* where the session goes on knocking, so that the greeting of the session gets in */
                 sCodePunch = from;
@@ -1938,6 +1967,14 @@ int Port_LobbyPoll(void) {
             }
             sLobby = 2;
         } else if (sLobbyRole == 2 && type == T_HELLO_ACK) {
+            if (sLanMode) {
+                uint32_t queue;
+                if (n < (int)(16 + NAME_LEN)) continue;
+                memcpy(&queue, pkt + 12, sizeof(queue));
+                if (queue != (uint32_t)sLanQueue) continue;
+                memcpy(sLobbyPeerName, pkt + 16, NAME_LEN);
+                sLobbyPeerName[NAME_LEN - 1] = '\0';
+            }
             sLobby = n >= 12 && memcmp(pkt + 8, &kVersion, 4) == 0 ? 2 : -2; /* -2: the host is another release */
             if (sCodeMode && sLobby == 2) { /* the address that answered is the one the session joins */
                 inet_ntop(AF_INET, &from.sin_addr, sLobbyAddr, sizeof(sLobbyAddr));
@@ -2006,6 +2043,7 @@ void Port_LobbyLaunch(void) {
     }
     sSock = -1;
     sLobby = 0;
+    sLanMode = 0;
     if (sCodeMode) {
         Match_Cancel();
         sCodeMode = 0;

@@ -4,6 +4,7 @@
 #include "sys/save.h"
 
 #ifdef PORT
+#include <stdlib.h>
 /*
  * PC only: "Tenkaichi Budokai Online", the main menu's item 11 (menu_a.c). The port's screen mode (port_screen.c)
  * runs this screen. Its own look for online play, after the mockups of online_design: every picture, piece,
@@ -256,6 +257,8 @@ extern void Port_NetRulesSet(int type, int dp, int time);
 extern const char *Port_NetNameGet(void);
 extern void Port_NetNameSave(const char *name);
 extern int Port_LobbyStartCode(int host, const char *code);
+extern int Port_LobbyStartLan(int host, const char *address, int port, int queue);
+extern const char *Port_LobbyPeerName(void);
 extern int Port_LobbyPoll(void);
 extern void Port_LobbyCancel(void);
 extern void Port_LobbyLaunch(void);
@@ -266,7 +269,7 @@ extern int Port_LobbyOther(void);
 extern void Port_LobbyBackground(int on);
 extern int Port_LobbyInBackground(void);
 extern int Port_RollCan(void);
-extern int Port_LobbyStartQuick(int queue);   /* a quick match: 0 one on one, 1 teams (the service's queues S, T) */
+extern int Port_LobbyStartQuick(int queue);   /* S, T, D10, D15, D20 matchmaking queues */
 extern void Port_LobbyQueuesAsk(void);        /* asks how many wait in each queue */
 extern int Port_LobbyQueueWaiting(int queue); /* ... as last heard, -1 if not known */
 extern void Port_NetSpeedSet(int percent);
@@ -380,10 +383,11 @@ typedef struct TboScreen {
     s32 host;           /* this side opened the room */
     s32 waitFrom;       /* frames when the search began */
     s32 found;          /* the other player is there: the match is starting */
+    s32 foundAt;        /* Wii VS: keep both names on screen before launching */
     s32 ended;          /* Port_NetSessionsEnded when it started: a change says the match has been played */
     s32 waitBack;       /* the screen a cancelled search goes back to */
     /* Quick Match */
-    s32 queue;          /* 0 one on one, 1 teams */
+    s32 queue;          /* 0 one on one, 1 teams, 2..4 teams with 10/15/20 DP */
     s32 qkCur;
     s32 asked;          /* frames when the queues were last asked about */
     /* Train While Waiting */
@@ -971,6 +975,53 @@ static void Tb_QuickUpdate(s32 live) {
     }
 }
 
+/* The Wii Custom Battle rows use the same five queues as the PC quick-match service. */
+static void Tb_WiiCustomSearchStart(void) {
+    s32 queue = sTb->wiiCustomCur;
+    const char *lan = getenv("BT3_LAN");
+    s32 state;
+
+    sTb->queue = queue;
+    Port_NetSpeedSet(Port_NetSpeedStandard());
+    Port_NetRulesSet(queue == 0 ? 0 : queue == 1 ? 1 : 2,
+                     queue >= 2 ? queue - 2 : 0, 4);
+    Port_NetOptions(Port_RollCan() ? 8 : 0, -2);
+    Port_NetNameSet(Port_NetNameGet());
+    if (lan != NULL && strcmp(lan, "online") == 0) {
+        state = Port_LobbyStartQuick(queue);
+        sTb->host = 2;
+    } else {
+        /* Direct LAN play is the default for this Wii page. The first local copy hosts; a second copy
+           whose bind finds that port occupied joins it over loopback. On separate PCs, give the host IP. */
+        if (lan == NULL || lan[0] == 0 || strcmp(lan, "auto") == 0) {
+            state = Port_LobbyStartLan(1, "", 25443, queue);
+            sTb->host = 1;
+            if (state < 0) {
+                state = Port_LobbyStartLan(0, "127.0.0.1", 25443, queue);
+                sTb->host = 0;
+            }
+        } else if (strcmp(lan, "host") == 0) {
+            state = Port_LobbyStartLan(1, "", 25443, queue);
+            sTb->host = 1;
+        } else if (strncmp(lan, "join:", 5) == 0 && lan[5] != 0) {
+            state = Port_LobbyStartLan(0, lan + 5, 25443, queue);
+            sTb->host = 0;
+        } else {
+            Tb_Note("BT3_LAN MUST BE auto, host, join:<HOST IP>, OR online");
+            Tb_SetMode(TB_WII_CUSTOM);
+            return;
+        }
+    }
+    if (state < 0) {
+        Tb_Note("THE NETWORK COULD NOT BE OPENED ON THIS PC");
+        Tb_SetMode(TB_WII_CUSTOM);
+        return;
+    }
+    sTb->waitFrom = sTb->frames;
+    sTb->found = 0;
+    sTb->waitBack = TB_WII_CUSTOM;
+}
+
 /* ---------------------------------------------------------------------------------------------- the hub */
 static void Tb_HubUpdate(s32 live) {
     Pad *pad = &gPad[0];
@@ -1030,8 +1081,32 @@ static void Tb_WiiUpdate(s32 live) {
               : sTb->mode == TB_WII_CUSTOM ? TB_WII_CUSTOM_COUNT : 2;
 
     if (sTb->mode == TB_WII_VS) {
-        if (live && (pad->gamePressed & PADG_TRIANGLE)) {
+        if (sTb->wiiNextMode) return;
+        if (!sTb->found) {
+            s32 state = Port_LobbyPoll();
+            if (state == 2) {
+                sTb->found = 1;
+                sTb->foundAt = live ? sTb->frames : -1;
+                sTb->ended = Port_NetSessionsEnded();
+                Snd_PlaySe(1, 1);
+            } else if (state <= 0) {
+                if (state == -3) Tb_Note((char *)Port_LobbyError());
+                else if (state == -4) Tb_Note("THE TWO GAMES COULD NOT REACH EACH OTHER");
+                else if (state < 0) Tb_Note("THE ROOM COULD NOT BE OPENED");
+                Port_LobbyCancel();
+                Tb_SetMode(TB_WII_CUSTOM);
+                return;
+            }
+        } else if (sTb->foundAt < 0 && live) {
+            sTb->foundAt = sTb->frames;
+        } else if (sTb->foundAt >= 0 && sTb->frames - sTb->foundAt >= 180) {
+            Tb_SetMode(TB_WAIT);
+            Port_LobbyLaunch();
+            return;
+        }
+        if (live && !sTb->found && (pad->gamePressed & PADG_TRIANGLE)) {
             Snd_PlaySe(1, 2);
+            Port_LobbyCancel();
             sTb->wiiNextMode = TB_WII_CUSTOM;
             ColorFade_StartOut(0, 0, 0, 0x14);
         }
@@ -1093,8 +1168,10 @@ static void Tb_WiiUpdate(s32 live) {
                 sTb->wiiNextMode = TB_WII_CUSTOM;
                 ColorFade_StartOut(0, 0, 0, 0x14);
             } else if (sTb->mode == TB_WII_CUSTOM) {
-                sTb->wiiNextMode = TB_WII_VS;
-                ColorFade_StartOut(0, 0, 0, 0x14);
+                if (Tb_Vanilla()) {
+                    sTb->wiiNextMode = TB_WII_VS;
+                    ColorFade_StartOut(0, 0, 0, 0x14);
+                }
             } else if (sTb->mode == TB_WII_SETTINGS && *cur == 0) {
                 if (!Port_DcNameOpen()) {
                     return;
@@ -2641,7 +2718,7 @@ static char *Tb_Help(void) {
     case TB_WII_CUSTOM:
         return "Choose a battle format.";
     case TB_WII_VS:
-        return "Searching for opponent...";
+        return sTb->found ? "Opponent found!" : "Searching for opponent...";
     case TB_WII_FRIENDS:
         if (sTb->wiiDialogText[0]) return sTb->wiiDialogText;
         return "";
@@ -3066,8 +3143,11 @@ static void Tb_DrawText(void) {
         }
         break;
     case TB_WII_VS:
-        if (Port_WiiArtAvailable())
+        if (Port_WiiArtAvailable()) {
             MsgWin_PortDrawNativeName(Port_NetNameGet(), 42, 83, 470, 171);
+            if (sTb->found && Port_LobbyPeerName()[0] != 0)
+                MsgWin_PortDrawNativeName(Port_LobbyPeerName(), 42, 223, 470, 311);
+        }
         break;
     case TB_HUB:
         Tb_DrawHubText();
@@ -3192,6 +3272,7 @@ s32 PortTbo_Run(void) {
             s32 next = sTb->wiiNextMode;
             sTb->wiiNextMode = 0;
             Tb_SetMode(next);
+            if (next == TB_WII_VS) Tb_WiiCustomSearchStart();
             ColorFade_StartIn(0, 0, 0, 0x14);
         }
         live = !sTb->leaving && ColorFade_IsInDone();
