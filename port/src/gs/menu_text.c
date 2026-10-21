@@ -2317,13 +2317,15 @@ uint8_t *MenuText_HeadingRender(const char *text, int *w, int *h) {
 uint8_t *MenuText_RenderWiiLabel(const char *text, int style, int scale, int *outWidth, int *outHeight) {
     MenuLabel label;
     Row row;
+    Face *face;
     uint8_t *result = NULL;
     int width, height;
     size_t length = text != NULL ? strlen(text) : 0;
     if (style < 0 || style > 2 || scale < 1 || scale > 4 || length == 0 ||
         length >= sizeof(label.text) || !outWidth || !outHeight) return NULL;
     pthread_mutex_lock(&sLock);
-    if (sFontChoice == 0) goto done;
+    face = sFontChoice == 0 ? line_face(0) : &sFont;
+    if (face == NULL) goto done;
     if (style == 2) {
         if (!heading_label(text, &label)) goto done;
         label.cap = 21; label.baseline = 29; label.margin = 9;
@@ -2348,7 +2350,7 @@ uint8_t *MenuText_RenderWiiLabel(const char *text, int style, int scale, int *ou
     width = 512 * scale; height = label.rowHeight * scale;
     result = calloc((size_t)width * height, 4);
     if (!result) goto done;
-    if (!menu_text_row(&sFont, &label, scale, &row)) { free(result); result = NULL; goto done; }
+    if (!menu_text_row(face, &label, scale, &row)) { free(result); result = NULL; goto done; }
     row_paste(result, width, 0, 0, width, height, &row);
     free(row.px);
     *outWidth = width; *outHeight = height;

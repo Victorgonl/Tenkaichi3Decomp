@@ -119,12 +119,10 @@ resource 4's Custom Battle title, and the same clock background. Giru enters ful
 The saved player name is centered in the blue panel; the opponent's name appears in the red panel when found.
 On both battle pages, each lower option starts 10.5 screen units farther right, following the original Wii menu's
 stair-step layout; the radar cursor follows the selected row's horizontal position and shares its text pulse.
-The five option labels use the configured Menu font because this extraction has no matching Wii label sheet.
-`tbo_sizes.py` measures the first row of the preceding battle page's idle and selected label textures and writes
-their bounds into `tbo_sizes.h`. Custom Battle uses the outline's left edge for position and the interior fill's
-height for font size; scaling the fill to the full outline height made the text too tall. Focused text
-uses the same orange palette as the Versus Duel Menu, and unfocused text uses its purple palette. The Wii bars use
-screen coordinates, so the font's page coordinates are converted before drawing to keep the two aligned on wide displays.
+The five option labels have no matching Wii lettering sheet. They use the
+Evolution Z style menu-label renderer with the selected Menu font; when it is
+Original, they use the first available Menu font in `fonts.tsv`. The label
+fill is 19 screen pixels high, with orange focused and purple idle states.
 # Editable Dragon Net Battle text
 
 The Dragon Net Battle screens read their entries and headers from
@@ -135,8 +133,8 @@ headers and entries. The battle help lines are editable there too. The
 Create Player Name keyboard title always uses its Wii artwork.
 Fighting Point always uses its Wii artwork. Restart the game to load changes.
 
-With **Menu font: Original**, unchanged labels use the extracted Wii artwork;
-edited labels use the Menu font. Selecting any other Menu font renders all
+With **Menu font: Original**, unchanged labels with Wii artwork use it;
+edited labels and the Custom Battle entries use font text. Selecting any other Menu font renders all
 entries and headers through the same row renderer and Evolution Z menu styles,
 including unchanged English text. The Wii rows keep their screen
 positions and the headers keep their entrance animation. Longer wording is

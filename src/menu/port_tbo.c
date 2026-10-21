@@ -518,7 +518,7 @@ static void Tb_WiiTextureLabel(s32 idle, s32 selected, f32 x, f32 y,
 static void Tb_WiiLabelText(char *label, f32 x, f32 y, s32 focusAlpha, u32 tint) {
     s32 layer;
     y -= 3.0f;
-    if (PortTbo_WiiUseFont()) {
+    if (PortTbo_WiiUseFont() || sTb->mode == TB_WII_CUSTOM) {
         for (layer = 0; layer < 2; layer++) {
             s32 opacity = layer ? focusAlpha : 0x80 - focusAlpha;
             s32 id;
@@ -2098,40 +2098,9 @@ static void Tb_DrawWiiBattle(void) {
             Ps_SpriteScreen(TBO_WII_BATTLE_BAR_GOLD, x, y, x + 512.0f, y + 64.0f,
                             0.0f, 0.0f, 1.0f, 1.0f, tint, focusAlpha);
         if (custom) {
-            if (PortTbo_WiiUseFont()) {
-                Tb_WiiLabelText(sTbWiiCustomName[i], x + 49.0f, y + 5.0f, focusAlpha, tint);
-            } else {
-                /* Match the Wii sheet's idle and selected layers during focus fades. */
-                f32 pagePerScreenX = 1.0f / (Ps_X(1.0f) - Ps_X(0.0f));
-                f32 pagePerScreenY = 1.0f / (Ps_Y(1.0f) - Ps_Y(0.0f));
-                /* Use the measured Evolution Z caption height here too. */
-                f32 screenScale = 19.0f / (PS_CELL_UNITS * PS_CAP_OF_CELL);
-                f32 scaleX = screenScale * pagePerScreenX;
-                f32 scaleY = screenScale * pagePerScreenY;
-                f32 textMiddle = (y + 2.0f + (f32)(sTboWiiBattleLabelFillRow0[1] +
-                                                  sTboWiiBattleLabelFillRow0[3]) * 0.5f - Ps_Y(0.0f)) * pagePerScreenY;
-                s32 layer;
-                Ps_Align(0);
-                for (layer = 0; layer < 2; layer++) {
-                    const u16 *bounds = sTboWiiBattleLabelRow0[layer];
-                    s32 opacity = layer ? focusAlpha : 0x80 - focusAlpha;
-                    f32 textX = (x + 49.0f + (f32)bounds[0] - Ps_X(0.0f)) * pagePerScreenX;
-                    f32 stretch = layer ? Tb_WiiFocusStretch() : 1.0f;
-                    f32 textY = Ps_TextTop(textMiddle, scaleY * stretch);
-                    if (opacity <= 0) continue;
-                    Ps_TextExOuterXY(textX, textY, sTbWiiCustomName[i], scaleX, scaleY * stretch,
-                                     230.0f * pagePerScreenX,
-                                     Tb_WiiTintText(Ps_Rgba(layer ? 0xF4 : 0xCB, layer ? 0xEF : 0xCB,
-                                                            layer ? 0x89 : 0xCB, opacity), tint),
-                                     Tb_WiiTintText(Ps_Rgba(layer ? 0xD2 : 0xCB, layer ? 0x68 : 0xCB,
-                                                            layer ? 0x4B : 0xCB, opacity), tint),
-                                     Tb_WiiTintText(Ps_Rgba(layer ? 0x2C : 0x46, layer ? 0x15 : 0x00,
-                                                            layer ? 0x1B : 0x59, opacity), tint),
-                                     Tb_WiiTintText(Ps_Rgba(layer ? 0x2C : 0x46, layer ? 0x15 : 0x00,
-                                                            layer ? 0x1B : 0x59, opacity), tint),
-                                     1.0f * pagePerScreenY);
-                }
-            }
+            /* The custom names have no Wii lettering sheet. Use the same
+               menu-label rasterizer with the first Menu font on Original. */
+            Tb_WiiLabelText(sTbWiiCustomName[i], x + 46.0f, y + 4.0f, focusAlpha, tint);
         } else {
             if (PortTbo_WiiUseFont() || sTbWiiTextEdited[TB_WII_TX_BATTLE_ROW + i])
                 Tb_WiiLabelText(sTbWiiBattleName[i], x + 49.0f, y + 5.0f, focusAlpha, tint);
