@@ -3,9 +3,12 @@
 With the Wii assets extracted, the PS2 main-menu plate **Dragon Net Battle** opens the Wii mode's top-level choices
 in the port's screen mode. Without those assets, it opens the PC online window over the main menu as before.
 Nintendo WFC Battle opens its Wii battle menu. Custom Battle opens a matching page with **1 VS 1 Battle**,
-**Team Battle**, **Team 10 DP Battle**, **Team 15 DP Battle**, and **Team 20 DP Battle**. These five entries can be
-focused but do not start a match yet. The other five battle entries
-remain unavailable.
+**Team Battle**, **10 DP Team Battle**, **15 DP Team Battle**, and **20 DP Team Battle**. Any of these entries opens
+the Wii opponent-search screen as a visual placeholder; no matchmaking or battle starts.
+Triangle returns to Custom Battle. Friend Battle keeps its original label and disabled appearance in
+the main battle menu; it does not open a screen. The Custom Battle option and all five submenu entries
+use their normal, enabled colors. The opponent-search screen alone uses the Custom Battle header.
+Normal Battle, Ranking Battle, View Ranking, and Battle Record remain unavailable.
 The separate **Tenkaichi Budokai Online** plate still opens its in-game hub.
 Manage Friends and Initialize Wi-Fi Data stay in the menu with a dimmed appearance when unfocused. Both can
 receive focus and play the selection sound, but they do not open a screen because their online services are
@@ -95,8 +98,11 @@ drawn UI over the decoded landscape.
 Focusing Ranking Battle or View Ranking shows the Wii Fighting Point panel on the left with `0000` as a placeholder.
 The Custom Battle page uses the extracted Wii title and the battle page's clock, Giru, bars, cursor, and fade.
 Its first option starts at the same vertical position as the first option on the preceding battle page.
+The opponent-search placeholder uses section 1 resource 3's blue and red VS panel halves and VS emblem,
+resource 4's Custom Battle title, and the same clock background. Giru enters fully on screen at the lower left after the fade.
+The saved player name is centered in the blue panel using the game's native message-window font.
 On both battle pages, each lower option starts 10.5 screen units farther right, following the original Wii menu's
-stair-step layout; the radar cursor follows the selected row's horizontal position.
+stair-step layout; the radar cursor follows the selected row's horizontal position and shares its text pulse.
 The five option labels use the configured Menu font because this extraction has no matching Wii label sheet.
 `tbo_sizes.py` measures the first row of the preceding battle page's idle and selected label textures and writes
 their bounds into `tbo_sizes.h`. Custom Battle uses the outline's left edge for position and the interior fill's

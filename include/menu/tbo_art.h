@@ -87,7 +87,9 @@
     X(TBO_WII_BATTLE_POINT_PANEL, "wii_battle_point_panel") \
     X(TBO_WII_BATTLE_POINT_LABEL, "wii_battle_point_label") \
     X(TBO_WII_BATTLE_POINT_DIGITS, "wii_battle_point_digits") \
-    X(TBO_WII_CUSTOM_TITLE, "wii_custom_title")
+    X(TBO_WII_CUSTOM_TITLE, "wii_custom_title") \
+    X(TBO_WII_VS_PANELS, "wii_vs_panels") \
+    X(TBO_WII_VS_MARK, "wii_vs_mark")
 
 #define TBO_ART_ENUM(id, name) id,
 enum { TBO_ART_LIST(TBO_ART_ENUM) TBO_ART_COUNT };

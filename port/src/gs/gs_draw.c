@@ -559,7 +559,7 @@ static GsTex tbo_texture(uint32_t id) {
     GsTex *cached;
     unsigned char *missing;
     int languageArt = id >= TBO_LANG_BG && id <= TBO_LANG_ARROW_RIGHT;
-    int wiiArt = id >= TBO_WII_BG_0 && id <= TBO_WII_CUSTOM_TITLE;
+    int wiiArt = id >= TBO_WII_BG_0 && id <= TBO_WII_VS_MARK;
     int wiiSection = 0, wiiResource = 0, wiiTexture = 0, wiiPart = -1;
 
     if (id >= TBO_TEXT_BASE && id < TBO_TEXT_BASE + TBO_TEXT_SLOTS) {
@@ -629,6 +629,8 @@ static GsTex tbo_texture(uint32_t id) {
         else if (id == TBO_WII_BATTLE_POINT_LABEL) { wiiSection = 1; wiiResource = 3; wiiTexture = 41; }
         else if (id == TBO_WII_BATTLE_POINT_DIGITS) { wiiSection = 1; wiiResource = 3; wiiTexture = 5; }
         else if (id == TBO_WII_CUSTOM_TITLE) { wiiSection = 1; wiiResource = 4; wiiTexture = 2; }
+        else if (id == TBO_WII_VS_PANELS) { wiiSection = 1; wiiResource = 3; wiiTexture = 20; }
+        else if (id == TBO_WII_VS_MARK) { wiiSection = 1; wiiResource = 3; wiiTexture = 40; }
         else { wiiResource = 5; wiiTexture = 3; }
         base = SDL_GetBasePath();
         png = NULL;
