@@ -83,6 +83,18 @@ movie's five-frame highlight transition. The European archive has five DragonNe 
 `home-subtitles-{en,es,de,fr,it}.bin` with 44 lines each. It also supplies five sets of headings,
 option labels, and Create Player Name artwork, including its button captions, under
 `languages/{en,es,de,fr,it}/`.
+The extractor also writes `menu-text-{en,es,de,fr,it}.bin` with all 66 Wii menu
+messages, including the six battle descriptions and opponent-search status.
+Every extracted Wii dialog line has a stable ID in `game-text/translations/ui/<locale>.json`:
+`wii-dragon-net/dialog/0` through `/43` for spoken dialog and
+`wii-dragon-net/menu-text/0` through `/65` for menu messages. Edit a row's
+`text` field to override the disc wording in that language. The selected menu
+language uses its Wii text when the row is unedited.
+The ported screens use these IDs: home, friends, settings, and ranking dialogue
+use `wii-dragon-net/dialog/<line>`; the six Nintendo WFC Battle descriptions use
+`wii-dragon-net/menu-text/47` through `/52`; and the opponent-search screen uses
+`wii-dragon-net/menu-text/53` and `/54`. The Custom Battle format prompt and
+player-name validation notices were written for the port; they are not Wii disc text.
 The port's selected menu language chooses the subtitle bank and matching Wii artwork;
 other menu languages fall back to English. Older extractions without localized artwork use the original
 English sheets. The landscape, moving clouds, and river sparkles stay visible behind Wii submenus.
@@ -129,7 +141,8 @@ The Dragon Net Battle screens read their entries and headers from
 `gamedata/game-text/translations/port/en.json`. Edit the `text` value of an ID
 beginning with `dragon-net/`, leaving its `original` and ID unchanged. This
 includes the home, battle, custom battle, friends, settings, and ranking
-headers and entries. The battle help lines are editable there too. The
+headers and entries. Battle help and opponent-search descriptions use Wii disc
+text and can be edited in the UI catalog. The
 Create Player Name keyboard title always uses its Wii artwork.
 Fighting Point always uses its Wii artwork. Restart the game to load changes.
 

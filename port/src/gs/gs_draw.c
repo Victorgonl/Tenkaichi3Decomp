@@ -26,6 +26,7 @@
 #include "gs_texpack.h" /* texture packs (replacement textures) */
 #include "menu_text.h"  /* editable labels in the original menu texture slots */
 #include "menu_translation.h" /* optional language screen artwork */
+#include "ui_text_translate.h" /* editable Wii dialog lines in the UI catalog */
 #include "menu_labels.h"      /* the chosen language's menu art from the European disc */
 #include <math.h>
 
@@ -317,6 +318,9 @@ static int sWiiDialogLoaded = -1;
 static char sWiiSubtitle[44][256];
 static char sWiiSubtitleLocale[3];
 static int sWiiSubtitleLoaded;
+static char sWiiMenuText[66][512];
+static char sWiiMenuTextLocale[3];
+static int sWiiMenuTextLoaded;
 
 static int tbo_wii_dialog_read(const char *path) {
     unsigned char header[8], item[12], event[4];
@@ -439,7 +443,69 @@ int Port_WiiDialogText(int line, char *out, int capacity) {
     if (n >= (size_t)capacity) n = (size_t)capacity - 1;
     memcpy(out, text, n);
     out[n] = 0;
+    UiText_TranslateIdUtf8("wii-dragon-net/dialog", line, out, capacity);
     return 1;
+}
+
+static int tbo_wii_menu_text_read(const char *path) {
+    unsigned char header[8], size[2];
+    FILE *file = fopen(path, "rb");
+    int line, length;
+
+    if (file == NULL) return 0;
+    if (fread(header, 1, 8, file) != 8 || memcmp(header, "WMT1", 4) != 0 ||
+        (header[4] | header[5] << 8) != 66) goto bad;
+    for (line = 0; line < 66; line++) {
+        if (fread(size, 1, 2, file) != 2) goto bad;
+        length = size[0] | size[1] << 8;
+        if (length < 1 || length >= (int)sizeof(sWiiMenuText[line]) ||
+            fread(sWiiMenuText[line], 1, (size_t)length, file) != (size_t)length) goto bad;
+        sWiiMenuText[line][length] = 0;
+    }
+    fclose(file);
+    return 1;
+bad:
+    fclose(file);
+    return 0;
+}
+
+int Port_WiiMenuText(int line, char *out, int capacity) {
+    const char *selected = MenuTranslation_Locale();
+    const char *locale = "en", *base;
+    char path[1024];
+    size_t length;
+
+    if (out == NULL || capacity < 1 || line < 0 || line >= 66) return 0;
+    if (selected != NULL && (strncmp(selected, "es", 2) == 0 || strncmp(selected, "de", 2) == 0 ||
+                             strncmp(selected, "fr", 2) == 0 || strncmp(selected, "it", 2) == 0))
+        locale = selected;
+    if (sWiiMenuTextLocale[0] != locale[0] || sWiiMenuTextLocale[1] != locale[1]) {
+        sWiiMenuTextLocale[0] = locale[0];
+        sWiiMenuTextLocale[1] = locale[1];
+        sWiiMenuTextLocale[2] = 0;
+        base = SDL_GetBasePath();
+        snprintf(path, sizeof(path), "%sgamedata/dragon-net-battle/menu-text-%s.bin",
+                 base != NULL ? base : "", sWiiMenuTextLocale);
+        sWiiMenuTextLoaded = tbo_wii_menu_text_read(path);
+        if (!sWiiMenuTextLoaded && base != NULL) {
+            snprintf(path, sizeof(path), "%s../../gamedata/dragon-net-battle/menu-text-%s.bin",
+                     base, sWiiMenuTextLocale);
+            sWiiMenuTextLoaded = tbo_wii_menu_text_read(path);
+        }
+        if (!sWiiMenuTextLoaded) {
+            snprintf(path, sizeof(path), "gamedata/dragon-net-battle/menu-text-%s.bin", sWiiMenuTextLocale);
+            sWiiMenuTextLoaded = tbo_wii_menu_text_read(path);
+        }
+        fprintf(stderr, "bt3: Wii menu text: %s %s\n", sWiiMenuTextLocale,
+                sWiiMenuTextLoaded ? "loaded" : "missing; using English fallback text");
+    }
+    if (sWiiMenuTextLoaded) {
+        length = strlen(sWiiMenuText[line]);
+        if (length >= (size_t)capacity) length = (size_t)capacity - 1;
+        memcpy(out, sWiiMenuText[line], length);
+        out[length] = 0;
+    }
+    return UiText_TranslateIdUtf8("wii-dragon-net/menu-text", line, out, capacity) || sWiiMenuTextLoaded;
 }
 
 int Port_WiiDialogDuration(int line, int japanese) {

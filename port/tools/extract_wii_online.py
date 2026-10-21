@@ -476,11 +476,75 @@ def extract_menu_art(afs, out, matches):
             png(folder / f"texture-{texture_index:03d}.png", width, height, pixels)
 
 
+def menu_text(text_data, out, locale):
+    lines = wii_text_lines(text_data, range(66), locale)
+    binary = bytearray(b"WMT1" + struct.pack("<HH", 66, 0))
+    for line in lines:
+        phrase = line.replace("\n", " ").encode("utf-8")
+        if not phrase or len(phrase) >= 512:
+            raise ValueError(f"{locale} Dragon Net menu text has an invalid line length")
+        binary += struct.pack("<H", len(phrase)) + phrase
+    (out / f"menu-text-{locale}.bin").write_bytes(binary)
+    return lines
+
+
+def wii_text_lines(text_data, indexes, locale):
+    offsets = table(text_data, f"{locale} Wii text")
+    if len(offsets) <= max(indexes) + 1:
+        raise ValueError(f"{locale} Wii text bank is missing expected lines")
+    lines = []
+    for line in indexes:
+        raw = text_data[offsets[line]:offsets[line + 1]]
+        if raw[:2] != b"\xff\xfe":
+            raise ValueError(f"{locale} Wii text line {line} lacks UTF-16LE marker")
+        lines.append(raw[2:].decode("utf-16le").split("\0", 1)[0])
+    return lines
+
+
+def wii_ui_catalog(out, locale, original_dialog, original_menu, dialog, menu_lines):
+    """Save stable Wii IDs and add them to an already generated UI catalog without losing edits."""
+    rows = {}
+    for group, originals, localized in (("dialog", original_dialog, dialog),
+                                        ("menu-text", original_menu, menu_lines)):
+        for index, (original, text) in enumerate(zip(originals, localized)):
+            rows[f"wii-dragon-net/{group}/{index}"] = {"original": original, "text": text}
+    # The C UI catalog generator also includes this fragment when making a new catalog.
+    fragment = "".join(",\n    " + json.dumps(key, ensure_ascii=False) + ": " +
+                       json.dumps(value, ensure_ascii=False) for key, value in rows.items())
+    (out / f"ui-fragment-{locale}.json").write_text(fragment, encoding="utf-8")
+    path = out.parent / "game-text/translations/ui" / f"{locale}.json"
+    if not path.is_file():
+        return
+    catalog = json.loads(path.read_text(encoding="utf-8"))
+    if catalog.get("locale") != locale or not isinstance(catalog.get("labels"), dict):
+        raise ValueError(f"{path}: invalid UI catalog for {locale}")
+    for key in list(catalog["labels"]):
+        if key.startswith("wii-dragon-net/battle-help/"):
+            del catalog["labels"][key]
+    for key, row in rows.items():
+        current = catalog["labels"].get(key)
+        # An edited text field belongs to the user. Refresh only untouched Wii entries.
+        if current is None or current.get("text") == current.get("original"):
+            catalog["labels"][key] = row
+    catalog["labels_count"] = len(catalog["labels"])
+    temp = path.with_suffix(".json.part")
+    temp.write_text(json.dumps(catalog, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    temp.replace(path)
+
+
 def extract_subtitles(afs, out, matches):
-    """Write each PAL DragonNe text bank for the port's menu language selector."""
+    """Write each PAL DragonNe dialogue and menu-text bank for the menu language selector."""
     locales = online_locales(afs, matches)
     for old in out.glob("home-subtitles-*.bin"):
         old.unlink()
+    for old in out.glob("battle-help-*.bin"):
+        old.unlink()
+    for old in out.glob("menu-text-*.bin"):
+        old.unlink()
+    for old in out.glob("ui-fragment-*.json"):
+        old.unlink()
+    original_dialog = wii_text_lines((out / "section-00/resource-007.bin").read_bytes(), range(44), "en")
+    original_menu = wii_text_lines((out / "section-00/resource-011.bin").read_bytes(), range(66), "en")
     for locale, index in zip(locales, matches):
         _, pack, _ = read_online(afs, index)
         boundaries = table(pack, f"{locale} online pack")
@@ -500,6 +564,18 @@ def extract_subtitles(afs, out, matches):
                 raise ValueError(f"{locale} Dragon Net line {line} has invalid length")
             binary += struct.pack("<H", len(phrase)) + phrase
         (out / f"home-subtitles-{locale}.bin").write_bytes(binary)
+        help_data = section[positions[11]:positions[12]]
+        menu_lines = menu_text(help_data, out, locale)
+        wii_ui_catalog(out, locale, original_dialog, original_menu,
+                       wii_text_lines(text_data, range(44), locale),
+                       menu_lines)
+    # Other installed UI languages can still edit the Wii IDs; their source
+    # wording falls back to English until that language has a Wii text bank.
+    ui_dir = out.parent / "game-text/translations/ui"
+    for path in ui_dir.glob("*.json"):
+        if path.stem not in locales:
+            wii_ui_catalog(out, path.stem, original_dialog, original_menu,
+                           original_dialog, original_menu)
 
 
 def extract(source, out, dolphin_tool, requested, voice_afs=None, require_eu=False):

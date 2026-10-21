@@ -2,7 +2,7 @@
   "schema_version": 1,
   "labels_version": 2,
   "translation_version": 1,
-  "labels_count": 37,
+  "labels_count": 31,
   "locale": "en",
   "name": "English",
   "order": 1,
@@ -130,30 +130,6 @@
     "dragon-net/name/title": {
       "original": "Create Player Name",
       "text": "Create Player Name"
-    },
-    "dragon-net/battle/help-custom": {
-      "original": "Search for opponents nationwide and fight in a single battle. (Custom characters OK)",
-      "text": "Search for opponents nationwide and fight in a single battle. (Custom characters OK)"
-    },
-    "dragon-net/battle/help-normal": {
-      "original": "Search for opponents nationwide and fight a normal battle.",
-      "text": "Search for opponents nationwide and fight a normal battle."
-    },
-    "dragon-net/battle/help-friend": {
-      "original": "Fight against a friend.",
-      "text": "Fight against a friend."
-    },
-    "dragon-net/battle/help-ranking": {
-      "original": "Compete against other players for a ranking.",
-      "text": "Compete against other players for a ranking."
-    },
-    "dragon-net/battle/help-view-ranking": {
-      "original": "View the battle rankings.",
-      "text": "View the battle rankings."
-    },
-    "dragon-net/battle/help-record": {
-      "original": "View your battle record.",
-      "text": "View your battle record."
     }
   }
 }

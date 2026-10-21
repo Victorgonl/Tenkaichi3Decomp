@@ -25,7 +25,7 @@
 #endif
 
 enum { TR_MAX_FILE = 1024 * 1024, TR_MAX_ROWS = 640, TR_MAX_GROUPS = 160 };
-enum { TR_PORT_TEXT_COUNT = 37, TR_PORT_TEXT_MAX = 1024, TR_PORT_MAX_FILE = 64 * 1024 };
+enum { TR_PORT_TEXT_COUNT = 31, TR_PORT_TEXT_MAX = 1024, TR_PORT_MAX_FILE = 64 * 1024 };
 static const struct { const char *id, *original; } kPortText[TR_PORT_TEXT_COUNT] = {
     {PORT_TEXT_QUIT_CONFIRM, "Close the game?\nUnsaved progress will be lost."},
     {PORT_TEXT_NET_CONNECTING, "Connecting to your rival..."},
@@ -57,13 +57,7 @@ static const struct { const char *id, *original; } kPortText[TR_PORT_TEXT_COUNT]
     {"dragon-net/ranking/title", "View Ranking"},
     {"dragon-net/ranking/area", "My Area"},
     {"dragon-net/ranking/top-10", "Top 10"},
-    {"dragon-net/name/title", "Create Player Name"},
-    {"dragon-net/battle/help-custom", "Search for opponents nationwide and fight in a single battle. (Custom characters OK)"},
-    {"dragon-net/battle/help-normal", "Search for opponents nationwide and fight a normal battle."},
-    {"dragon-net/battle/help-friend", "Fight against a friend."},
-    {"dragon-net/battle/help-ranking", "Compete against other players for a ranking."},
-    {"dragon-net/battle/help-view-ranking", "View the battle rankings."},
-    {"dragon-net/battle/help-record", "View your battle record."}
+    {"dragon-net/name/title", "Create Player Name"}
 };
 typedef struct TrPortCatalog {
     char text[TR_PORT_TEXT_COUNT][TR_PORT_TEXT_MAX];

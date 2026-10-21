@@ -53,6 +53,7 @@ extern s32 Port_DcNameKey(s32 page, s32 row, s32 col);
 extern void Port_DcNamePress(s32 page, s32 row, s32 col);
 extern void Port_DcNameDraw(s32 page, s32 row, s32 col, s32 rise);
 extern s32 Port_WiiDialogText(s32 line, char *out, s32 capacity);
+extern s32 Port_WiiMenuText(s32 line, char *out, s32 capacity);
 extern s32 Port_WiiDialogDuration(s32 line, s32 japanese);
 extern s32 Port_WiiDialogMouth(s32 line, s32 frame, s32 japanese);
 extern s32 Port_WiiVoicePlay(s32 line, s32 japanese);
@@ -420,14 +421,15 @@ static char *sTbWiiBattleName[6] = {"Custom Battle", "Normal Battle", "Friend Ba
 static char *sTbWiiCustomName[TB_WII_CUSTOM_COUNT] = {
     "1 VS 1 Battle", "Team Battle", "10 DP Team Battle", "15 DP Team Battle", "20 DP Team Battle"
 };
-static char *sTbWiiBattleHelp[6] = {
+static const char *const sTbWiiBattleHelpDefault[6] = {
     "Search for opponents nationwide and fight in a single battle. (Custom characters OK)",
-    "Search for opponents nationwide and fight a normal battle.",
-    "Fight against a friend.",
-    "Compete against other players for a ranking.",
-    "View the battle rankings.",
-    "View your battle record."
+    "Search for opponents nationwide and fight in a single battle. (Normal characters only)",
+    "Search for opponents from your Friend Roster. (Custom characters OK)",
+    "A ranking battle; Dragon Net Battle fight. (Custom characters OK)",
+    "View Rankings.",
+    "View Battle History."
 };
+static char *sTbWiiBattleHelp[6];
 static char *sTbWiiFriendsName[3] = {"Friend List", "Add Friend", "My Friend Code"};
 static char *sTbWiiSettingsName[2] = {"Create Player Name", "Initialize Wi-Fi Data"};
 static char *sTbWiiRankingName[2] = {"My Area", "Top 10"};
@@ -453,7 +455,7 @@ static u8 sTbWiiTextEdited[TB_WII_TEXT_COUNT];
 #define TB_WII_TX_BATTLE_HELP 28
 static void Tb_LoadWiiText(void) {
     s32 i;
-    for (i = 0; i < TB_WII_TEXT_COUNT; i++)
+    for (i = 0; i < TB_WII_TX_BATTLE_HELP; i++)
         sTbWiiTextEdited[i] = PortTbo_WiiTextCopy(i, sTbWiiText[i], TB_WII_TEXT_SIZE);
     for (i = 0; i < 3; i++) {
         sTbWiiHomeName[i] = sTbWiiText[TB_WII_TX_HOME_ROW + i];
@@ -461,6 +463,8 @@ static void Tb_LoadWiiText(void) {
     }
     for (i = 0; i < 6; i++) {
         sTbWiiBattleName[i] = sTbWiiText[TB_WII_TX_BATTLE_ROW + i];
+        Ps_Copy(sTbWiiText[TB_WII_TX_BATTLE_HELP + i], sTbWiiBattleHelpDefault[i], TB_WII_TEXT_SIZE);
+        Port_WiiMenuText(47 + i, sTbWiiText[TB_WII_TX_BATTLE_HELP + i], TB_WII_TEXT_SIZE);
         sTbWiiBattleHelp[i] = sTbWiiText[TB_WII_TX_BATTLE_HELP + i];
     }
     for (i = 0; i < TB_WII_CUSTOM_COUNT; i++) sTbWiiCustomName[i] = sTbWiiText[TB_WII_TX_CUSTOM_ROW + i];
@@ -2744,8 +2748,11 @@ static char *Tb_Help(void) {
         return sTbWiiBattleHelp[sTb->wiiBattleCur];
     case TB_WII_CUSTOM:
         return "Choose a battle format.";
-    case TB_WII_VS:
+    case TB_WII_VS: {
+        static char matchHelp[256];
+        if (Port_WiiMenuText(sTb->found ? 54 : 53, matchHelp, sizeof(matchHelp))) return matchHelp;
         return sTb->found ? "Opponent found!" : "Searching for opponent...";
+    }
     case TB_WII_FRIENDS:
         if (sTb->wiiDialogText[0]) return sTb->wiiDialogText;
         return "";
