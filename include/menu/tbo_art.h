@@ -81,6 +81,9 @@
     X(TBO_WII_BATTLE_BG_5, "wii_battle_bg_5") \
     X(TBO_WII_BATTLE_BG_6, "wii_battle_bg_6") \
     X(TBO_WII_BATTLE_BG_7, "wii_battle_bg_7") \
+    X(TBO_WII_BATTLE_NEBULA, "wii_battle_nebula") \
+    X(TBO_WII_BATTLE_STARS_0, "wii_battle_stars_0") \
+    X(TBO_WII_BATTLE_STARS_1, "wii_battle_stars_1") \
     X(TBO_WII_BATTLE_GIRU, "wii_battle_giru") \
     X(TBO_WII_BATTLE_GIRU_EYE_BRIGHT, "wii_battle_giru_eye_bright") \
     X(TBO_WII_BATTLE_GIRU_EYE_DIM, "wii_battle_giru_eye_dim") \

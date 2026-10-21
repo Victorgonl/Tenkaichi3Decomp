@@ -622,6 +622,10 @@ static GsTex tbo_texture(uint32_t id) {
         else if (id >= TBO_WII_BATTLE_BG_0 && id <= TBO_WII_BATTLE_BG_7) {
             wiiSection = 1; wiiResource = 1; wiiTexture = id - TBO_WII_BATTLE_BG_0;
         }
+        else if (id == TBO_WII_BATTLE_NEBULA) { wiiSection = 1; wiiResource = 3; wiiTexture = 2; }
+        else if (id >= TBO_WII_BATTLE_STARS_0 && id <= TBO_WII_BATTLE_STARS_1) {
+            wiiSection = 1; wiiResource = 3; wiiTexture = id - TBO_WII_BATTLE_STARS_0;
+        }
         else if (id >= TBO_WII_BATTLE_GIRU && id <= TBO_WII_BATTLE_GIRU_EYE_DIM) {
             wiiSection = 1; wiiResource = 2; wiiTexture = id - TBO_WII_BATTLE_GIRU;
         }

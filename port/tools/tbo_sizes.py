@@ -48,6 +48,9 @@ WII_NESTED = {
 }
 WII_BATTLE = {
     "wii_battle_title": (4, 1),
+    "wii_battle_nebula": (3, 2),
+    "wii_battle_stars_0": (3, 0),
+    "wii_battle_stars_1": (3, 1),
     "wii_battle_bar_blue": (3, 26),
     "wii_battle_bar_gold": (3, 27),
     "wii_battle_label_idle": (3, 29),

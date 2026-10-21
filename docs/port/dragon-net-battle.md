@@ -107,6 +107,10 @@ show neutral descriptions without character dialogue. The other lower Wii menu p
 drawn UI over the decoded landscape.
 Focusing Ranking Battle or View Ranking shows the Wii Fighting Point panel on the left with `0000` as a placeholder.
 The Custom Battle page uses the extracted Wii title and the battle page's clock, Giru, bars, cursor, and fade.
+The Nintendo WFC Battle, Custom Battle, and opponent-search pages draw the
+extracted nebula and both halves of the shimmering star field inside the clock's
+circular window. Only the small central stars are shown; the large glowing rim
+stars are hidden.
 Its first option starts at the same vertical position as the first option on the preceding battle page.
 The opponent-search screen uses section 1 resource 3's blue and red VS panel halves, panel highlights,
 1P/2P badges, VS emblem, and battle-record labels and digits. Both panels show Battles, Wins, and Losses

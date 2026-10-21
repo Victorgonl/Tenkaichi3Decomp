@@ -1728,11 +1728,32 @@ static void Tb_Backdrop(void) {
 
     if (sTb->wii && sTb->mode >= TB_WII_HOME && Port_WiiArtAvailable()) {
         if (sTb->mode == TB_WII_BATTLE || sTb->mode == TB_WII_CUSTOM || sTb->mode == TB_WII_VS) {
+            f32 nebulaPulse = (1.0f + cosf((f32)sTb->frames * 0.025f)) * 0.5f;
             for (i = 0; i < 8; i++) {
                 f32 x = (f32)(i % 4) * 128.0f;
                 f32 y = (f32)(i / 4) * 224.0f;
                 Ps_SpriteScreen(TBO_WII_BATTLE_BG_0 + i, x, y, x + 128.0f, y + 224.0f,
                                 0.0f, 0.0f, 1.0f, 1.0f, PS_PLAIN, 0x80);
+            }
+            /* The extracted space layer belongs inside the clock's circular
+               window, behind the rows and the VS panels. */
+            Ps_SpriteScreen(TBO_WII_BATTLE_NEBULA, 101.0f, 43.0f, 411.0f, 401.0f,
+                            0.0f, 0.0f, 1.0f, 1.0f, PS_PLAIN,
+                            0x58 + (s32)(nebulaPulse * 0x28));
+            for (i = 0; i < 2; i++) {
+                /* The glowing large stars sit around the source sheet's rim.
+                   Keep the small central stars at their original screen size. */
+                f32 starPulse = (1.0f + cosf((f32)sTb->frames * 0.041f + (f32)i * 1.7f)) * 0.5f;
+                f32 srcX0 = i ? 256.0f : 120.0f;
+                f32 srcX1 = i ? 390.0f : 256.0f;
+                f32 x0 = 101.0f + srcX0 * (310.0f / 512.0f);
+                f32 x1 = 101.0f + srcX1 * (310.0f / 512.0f);
+                Ps_SpriteScreen(TBO_WII_BATTLE_STARS_0 + i,
+                                x0, 43.0f + 110.0f * (358.0f / 512.0f),
+                                x1, 43.0f + 390.0f * (358.0f / 512.0f),
+                                (srcX0 - (f32)i * 256.0f) / 256.0f, 110.0f / 512.0f,
+                                (srcX1 - (f32)i * 256.0f) / 256.0f, 390.0f / 512.0f, PS_PLAIN,
+                                0x60 + (s32)(starPulse * 0x20));
             }
             return;
         }

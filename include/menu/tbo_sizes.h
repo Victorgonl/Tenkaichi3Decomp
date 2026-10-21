@@ -79,6 +79,9 @@ static const u16 sTboSize[TBO_ART_COUNT][3] = {
     {128, 256, 0}, /* wii_battle_bg_5 */
     {128, 256, 0}, /* wii_battle_bg_6 */
     {128, 256, 0}, /* wii_battle_bg_7 */
+    {256, 256, 0}, /* wii_battle_nebula */
+    {256, 512, 0}, /* wii_battle_stars_0 */
+    {256, 512, 0}, /* wii_battle_stars_1 */
     {256, 128, 0}, /* wii_battle_giru */
     {256, 128, 0}, /* wii_battle_giru_eye_bright */
     {256, 128, 0}, /* wii_battle_giru_eye_dim */
