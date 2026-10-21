@@ -8,8 +8,13 @@ Nintendo WFC Battle opens its Wii battle menu. Custom Battle opens a page with *
 the Wii opponent-search screen with its matching battle rules.
 When another player is found, the VS screen shows both player names and "Opponent found!" for about three seconds
 before the existing online session launcher starts the battle. Triangle cancels
-the search and returns to the battle page it came from. Friend Battle keeps its original label and disabled appearance in
-the main battle menu; it does not open a screen. Custom Battle, Normal Battle, and their submenu entries
+the search and returns to the battle page it came from. Friend Battle is enabled and opens **Host Battle** and
+**Join Battle**. Hosting offers all five battle formats, then shows a six-character room code on the Wii VS screen.
+Joining accepts that code through the same Wii Data Center keyboard used for Create Player Name, limited to six
+letters or numbers, and opens the same VS screen. When the connection succeeds, both
+names remain on screen for about three seconds before battle; a failed join returns to the Friend Battle menu.
+Room codes use the configured matchmaking service (`BT3_MATCH_URL`) and require that service to be reachable.
+Custom Battle, Normal Battle, and their submenu entries
 use their normal, enabled colors. Each submenu and opponent-search screen uses its selected battle type as the header.
 Ranking Battle, View Ranking, and Battle Record remain unavailable.
 By default, these entries use the existing direct lobby and battle session, with no matchmaking Worker, build
@@ -27,7 +32,12 @@ Use `level 1` through `level 5` to set the game's CPU difficulty (3 by default),
 such as `1v1 5`. Changing the level while the bot is running restarts it, so choose the level before a match.
 Enter `exit` to close the bot's game and quit; entering another mode restarts the bot in that mode. You can also
 pass an initial mode and level, such as `python3 port/tools/lan_bot.py 1v1 --level 5`. The bot's game runs without a window or sound.
-It joins only the
+For Friend Battle room codes, enter `host 1v1`, `host team`, `host dp10`, `host dp15`, or `host dp20` in the bot
+prompt. The bot prints the generated code; enter it in the game's **Friend Battle > Join Battle** screen.
+Enter `join ABC123` to make the bot join a code shown by the game's **Friend Battle > Host Battle** screen.
+These commands also work at startup as `python3 port/tools/lan_bot.py 1v1 --generate-code` or
+`python3 port/tools/lan_bot.py --join-code ABC123`. Room codes require the configured matchmaking service.
+For the direct LAN commands, it joins only the
 matching LAN queue, picks a random available character on the select screen, and uses the game's CPU AI in battle.
 If the bot wins, it selects **Return to Character Select** and confirms **Yes** in the result menu, so the session
 can continue with another character selection.
@@ -52,6 +62,79 @@ keyboard entrance. He uses his native 256×128 texture size on both pages. The k
 glyphs, captions, and text field share the Wii nickname movie's 16-frame entrance.
 Returning from User Settings preserves the home positions without replaying their entrance. Both characters keep
 their continuous idle movement.
+
+## Reusing a keyboard on a new screen
+
+For a Wii-style text-entry screen, follow `TB_WII_NAME` (player name) or `TB_WII_FRIEND_CODE` (room code) in
+[`src/menu/port_tbo.c`](../../src/menu/port_tbo.c). Both use the Data Center Password Input movie exposed by
+`Port_DcNameOpen`, `Port_DcNameKey`, `Port_DcNamePress`, `Port_DcNameDraw`, and `Port_DcNameClose` in
+[`src/menu/menu_z_d.c`](../../src/menu/menu_z_d.c). The helper supplies the animated keys and buttons; the caller
+owns the entered text, text field, title, background, and what Decide and Quit do.
+
+1. Add a screen mode and open the keyboard with `Port_DcNameOpen()` before entering it. If opening fails, stay on
+   the current screen. Initialize `typed`, `typedLen`, `nameCursor`, `lower`, `keyRow`, and `keyCol`; the name editor
+   preloads the saved player name, while Join Battle starts empty. A transition through `wiiNextMode` and
+   `ColorFade_StartOut` gives the new screen the normal fade.
+2. Route the mode through the main update and draw switches. `Tb_WiiNameUpdate` handles the Wii cursor, case,
+   insertion, deletion, Decide, and Quit; add the new mode where those common controls are dispatched, then give
+   it its own validation and completion action. `Tb_NameAdd` and `Tb_NameBack` hold the text. Set the new mode's
+   length and allowed characters explicitly; the room code uses six uppercase letters or digits, while the name
+   uses up to 16 characters. Keep room codes in `code`, separate from the saved player name.
+3. Draw the movie with `Port_DcNameDraw(lower, keyRow, keyCol, rise)`, then draw the field and its typed characters
+   as `Tb_DrawWiiName` and `Tb_DrawWiiNameText` do. `rise` moves the keyboard during its entrance; the helper
+   applies the movie's fixed 30-pixel upward offset. Draw the title in `Tb_DrawText` so it follows the same
+   entrance. Use the screen's own title art or a centered font title as needed.
+4. Include the mode in `Tb_Backdrop` according to the background it should retain. Join Battle includes
+   `TB_WII_FRIEND_CODE` in the Battle Net clock and space background; routing it only to the keyboard draw path
+   would leave the wrong backdrop. Also include it in the screen's fade, frame counter, and heading/prompt
+   conditions where appropriate.
+5. Call `Port_DcNameClose()` when leaving the keyboard mode, including cancellation and failed submission. The
+   current `Tb_SetMode` does this for both Wii keyboard modes; `PortTbo_Run` also closes it on shutdown. Keep the
+   input-only movie rendering so the Data Center screen's own background and password handling do not appear.
+
+The separate PC online hub has a code keypad (`Tb_Keypad`/`Tb_PadUpdate`) and a name keypad in the same file.
+Those are drawn from the port's UI kit and can also accept physical keyboard typing through `Port_TextMode` and
+`Port_TextRead`. Use that path for a PC-style screen; the Wii movie path uses controller navigation.
+
+## Adding a Dragon Net Battle submenu
+
+Use the Custom/Normal format page (`TB_WII_CUSTOM`) or Friend Battle's Host/Join page (`TB_WII_FRIEND_MENU`)
+in [`src/menu/port_tbo.c`](../../src/menu/port_tbo.c) as the starting point. Custom and Normal share a screen
+mode and select different rows and titles through `wiiNormalBattle`; Friend Battle has its own mode. A new
+submenu needs a mode, a cursor, labels, drawing, input, and a route back to its parent.
+
+1. Add a `TB_WII_*` mode and enough state in `TboScreen` for its cursor and any chosen variant. Give the mode a
+   title in `sTbTitle`/`Tb_SetWiiTitles` so the screen reader can announce it. Reset its cursor before opening it.
+   In the parent entry's Cross branch of `Tb_WiiUpdate`, set `wiiNextMode` and call `ColorFade_StartOut`; the run
+   loop calls `Tb_SetMode` after fade-out and starts the fade-in. Add Triangle navigation back to the parent in
+   the same update function.
+2. In `Tb_WiiUpdate`, select the new cursor and row count for the mode. Add its Cross action for each enabled
+   entry. If an entry starts opponent search, choose its queue and rules, set `waitBack` to the submenu, and use
+   the existing VS transition/search path. Keep unavailable entries visibly dimmed and without a Cross action.
+3. Draw the submenu in `Tb_Draw`, usually by extending `Tb_DrawWii`/`Tb_DrawWiiBattle`. That renderer already
+   supplies Giru, stair-step bars, focused gold/idle blue layers, pulsing label text, radar, and the animated
+   header. Set the row count, cursor, labels, and title for the new mode consistently in all its drawing paths.
+   If there is no extracted lettering sheet, use `Tb_WiiLabelText` for both focus states. Keep the crest draw
+   after the title so it appears over the lettering.
+4. Include the mode in `Tb_Backdrop` for the clock, space, and stars, and in the main run loop's Wii update,
+   draw, entrance timer, and prompt conditions. `Tb_SetMode` resets `modeT` and focus animation state; add the
+   mode to its `wiiBattleT` reset when it uses the Battle Net entrance. Match the input gate in `Tb_WiiUpdate`
+   so rows cannot be chosen while they are entering.
+5. Put editable header and entry strings in `kPortText` in
+   [`port/src/gs/menu_translation.c`](../../port/src/gs/menu_translation.c) and in each applicable
+   `port/translations/port/en.json` (and any other port language catalogs you provide), using stable
+   `dragon-net/...` IDs. Update the catalog's count metadata too. `Tb_LoadWiiText` copies the
+   resolved strings into `sTbWiiText`; update its index constants, `TB_WII_TEXT_COUNT`, and the arrays that
+   reference those strings. Keep the catalog order and `PortTbo_WiiTextCopy` indices in sync. If the words or
+   descriptions come from Wii disc text instead, expose their extracted IDs through the UI catalog and render
+   that resolved text. Add the submenu's title, focused entry, and description to `Tb_Speak`/`Tb_BoxLine` for
+   screen reading and the bottom dialog.
+
+For a submenu with its own artwork, add the extracted texture IDs and dimensions in
+[`include/menu/tbo_art.h`](../../include/menu/tbo_art.h) and the extractor's mapping in
+[`port/tools/extract_wii_online.py`](../../port/tools/extract_wii_online.py). A submenu built from the existing
+Battle Net bars, radar, and font labels needs no new texture sheet.
+
 The settings header uses the Wii **User Settings** title from section 0, resource 4, texture 3, with the
 existing header animation.
 Decide saves the name to `net_name` in `bt3_settings.txt` and updates the

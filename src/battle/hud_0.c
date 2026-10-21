@@ -369,7 +369,7 @@ s32 PauseMenu_Update(s32 pad, s32 which) {
         extern s32 BattleResult_GetWinnerSide(void);
         /* In a net match the winning pad owns this menu. Let a winning CPU opponent use the
            ordinary "Return to Character Select" entry (id 0xD) and its Yes confirmation. */
-        if (which == 1 && pad == 1 && Port_NetBotSide() == 1 && BattleResult_GetWinnerSide() == 1 &&
+        if (which == 1 && pad == Port_NetBotSide() && BattleResult_GetWinnerSide() == pad &&
             menu == &gPauseMenuResultVersus) {
             s32 i;
             for (i = 0; i < menu->count; i++) {

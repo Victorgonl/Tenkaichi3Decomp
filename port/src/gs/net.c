@@ -53,7 +53,7 @@ enum { T_HELLO = 1, T_HELLO_ACK = 2, T_INPUT = 3, T_BYE = 4, T_PING = 5, T_PONG 
 /* The version of what goes over the line. The greeting and its answer carry it, and two copies that differ do not
    start a match (the input packets changed with version 2: times for the ping were added; a copy that read them
    the old way took them for input). 1 was releases 0.1.8 and 0.1.9, which said no version. */
-enum { NET_VERSION = 7, IN_HEAD = 44 }; /* 3 (0.1.15): the host's battle rules travel with its choices.
+enum { NET_VERSION = 8, IN_HEAD = 44 }; /* 3 (0.1.15): the host's battle rules travel with its choices.
    4 (0.1.34): a session's start-up no longer follows the player's "Skip logos" / "Skip intro video" (0.1.32 and
    0.1.33 with either on computed another start-up than the other side and the two never agreed again: such a copy
    must not be let into a match); the input packets carry the sender's check value (sync_*, below), 12 bytes more
@@ -110,7 +110,7 @@ void Port_NetOptions(int rollback, int delay) {
 #define NAME_LEN 20
 static char sNames[2][NAME_LEN], sMyName[NAME_LEN] = "Player";
 int Port_NetActive(void);
-static int sBotSide = -1; /* The joining player runs the game's CPU. */
+static int sBotSide = -1; /* -1: human peers; 0: host bot; 1: joining bot. */
 static int sBotSetting = 2; /* Game difficulty setting 0..4; default is Normal. */
 int Port_NetBotSide(void) { return Port_NetActive() ? sBotSide : -1; }
 int Port_NetBotLevel(void) {
@@ -726,8 +726,9 @@ static int receive(void) {
             uint32_t ack[3] = {MAGIC, T_HELLO_ACK, NET_VERSION};
             net_send(ack, sizeof(ack), &from);
         } else if (type == T_HELLO && sMode == 1) {
-            uint32_t ack[8 + NAME_LEN / 4] = {MAGIC, T_HELLO_ACK, (uint32_t)sDelay, (uint32_t)sRollMax, NET_VERSION, sRules};
+            uint32_t ack[9 + NAME_LEN / 4] = {MAGIC, T_HELLO_ACK, (uint32_t)sDelay, (uint32_t)sRollMax, NET_VERSION, sRules};
             ack[7 + NAME_LEN / 4] = sSeed;
+            ack[8 + NAME_LEN / 4] = getenv("BT3_NET_BOT") != NULL ? (4u | ((uint32_t)bot_setting_env() << 8)) : 0u;
             memcpy(&ack[6], sMyName, NAME_LEN);
             ack[6 + NAME_LEN / 4] = sOpts[0];
             if (n >= 12 + NAME_LEN) { /* the other player's name came with the greeting */
@@ -745,9 +746,10 @@ static int receive(void) {
                 if ((cap & 0xFFFF0000u) != CAP_MARK) {
                     cap = 0;
                 }
-                sBotSide = (cap & 4) != 0 ? 1 : -1;
-                sBotSetting = sBotSide == 1 && ((cap >> 8) & 7) <= 4 ? (int)((cap >> 8) & 7) : 2;
-                if (sBotSide == 1)
+                sBotSide = getenv("BT3_NET_BOT") != NULL ? 0 : (cap & 4) != 0 ? 1 : -1;
+                sBotSetting = sBotSide == 0 ? bot_setting_env() :
+                              sBotSide == 1 && ((cap >> 8) & 7) <= 4 ? (int)((cap >> 8) & 7) : 2;
+                if (sBotSide >= 0)
                     fprintf(stderr, "bt3: net: CPU opponent accepted at level %d/5\n", sBotSetting + 1);
                 if (!(cap & 2)) { /* does not know the number: 120% if it knows that and it is that, else 100% */
                     sRules &= ~(0xFFu << RULE_SPEED_SHIFT);
@@ -786,8 +788,15 @@ static int receive(void) {
                 }
                 memcpy(sNames[1], sMyName, NAME_LEN);
                 sBotSide = getenv("BT3_NET_BOT") != NULL ? 1 : -1;
-                sBotSetting = bot_setting_env();
-                if (sBotSide == 1)
+                if (n >= 36 + NAME_LEN && sBotSide < 0) {
+                    uint32_t hostBot;
+                    memcpy(&hostBot, pkt + 32 + NAME_LEN, 4);
+                    if (hostBot & 4) sBotSide = 0;
+                    sBotSetting = ((hostBot >> 8) & 7) <= 4 ? (int)((hostBot >> 8) & 7) : 2;
+                } else {
+                    sBotSetting = bot_setting_env();
+                }
+                if (sBotSide >= 0)
                     fprintf(stderr, "bt3: net: playing as CPU at level %d/5\n", sBotSetting + 1);
                 sCfgGot = 1;
                 sConnected = 1;
@@ -882,6 +891,7 @@ void Port_TestSlow(int what, int amount) {
 
 static int sSession; /* a session started from Dragon Net Battle (below), not a plain connected run */
 static int sLanSession; /* this session came from the direct LAN battle lobby */
+static int sCodeSession; /* this session came from a room code: the Wii VS screen already showed the rival */
 static int sArrived; /* its start-up has reached the character select */
 static uint32_t sStartedMs; /* when the two were connected (for the log) */
 
@@ -1227,6 +1237,7 @@ int Port_NetActive(void) {
         if (host != NULL || join != NULL) {
             sSession = getenv("BT3_NET_SESSION") != NULL;
             sLanSession = sSession && getenv("BT3_NET_LAN_SESSION") != NULL;
+            sCodeSession = sSession && getenv("BT3_NET_CODE_SESSION") != NULL;
             net_start(host != NULL ? 1 : 2, host, join);
         }
     }
@@ -1244,8 +1255,8 @@ static void sample_local(unsigned tick) {
         return;
     }
     memcpy(mine, kIdle, PAD);
-    if (sBotSide == 1 && sMe == 1) {
-        /* The host controls shared menus; bot selection and battle AI run in the game state on both copies. */
+    if (sBotSide == sMe) {
+        /* Bot selection and battle AI run in the game state on both copies. */
     } else if (sScript != NULL) {
         uint8_t both[2 * PAD];
         if (fseek(sScript, (long)tick * 2 * PAD, SEEK_SET) == 0 && fread(both, 1, sizeof(both), sScript) == sizeof(both)) {
@@ -1390,7 +1401,7 @@ static void session_banner(void) {
     char text[256], name[NAME_LEN];
     size_t i, k, n;
 
-    if (!sSession || sLanSession) {
+    if (!sSession || sLanSession || sCodeSession) {
         return;
     }
     for (i = k = 0; other[i] != '\0' && k + 1 < sizeof(name); i++) { /* (the other side's text: printable only) */
@@ -1495,7 +1506,7 @@ static void meet(unsigned tick) {
         session_hold();
     } while (sTheirArrival == 0);
     session_banner();
-    if (!sLanSession)
+    if (!sLanSession && !sCodeSession)
         Port_UiBanner(NULL, 2500); /* (the line stays a little over the character select, without the dimming) */
     fprintf(stderr, "bt3: net: both at the character select (blank %u), %u ms after connecting\n", tick, (unsigned)(now_ms() - sStartedMs));
     if (sTheirArrival != tick) {
@@ -1645,6 +1656,7 @@ static void relaunch(int role, const char *join, int port) {
     SETENV("BT3_NET_JOIN", NULL);
     SETENV("BT3_NET_SESSION", NULL);
     SETENV("BT3_NET_LAN_SESSION", NULL);
+    SETENV("BT3_NET_CODE_SESSION", NULL);
     SETENV("BT3_SOUND_TICKS", NULL);
     if (role != 0) {
         if (role == 1) {
@@ -1656,6 +1668,7 @@ static void relaunch(int role, const char *join, int port) {
         }
         SETENV("BT3_NET_SESSION", "1");
         if (sLanSession) SETENV("BT3_NET_LAN_SESSION", "1");
+        if (sCodeSession) SETENV("BT3_NET_CODE_SESSION", "1");
         SETENV("BT3_NET_NAME", sMyName);
         {   /* a match found with a room code: the lobby's local port, and for the host where to go on knocking */
             char text[64] = "";
@@ -1829,6 +1842,7 @@ void Port_NetSessionEnd(void) {
     sMode = 0;
     sSession = 0;
     sLanSession = 0;
+    sCodeSession = 0;
     sBotSide = -1;
     PortChat_Reset();
     put_env("BT3_SAVES", sSavesWasSet ? sSavesBefore : NULL);
@@ -1976,6 +1990,7 @@ int Port_LobbyStartLan(int host, const char *address, int port, int queue) {
 }
 
 static int sQuickQueue = -1; /* Port_LobbyStartQuick: the search that Port_LobbyStartCode starts is a quick match in this queue */
+static int sCodeQuick; /* keep that distinction after sQuickQueue is reset */
 
 int Port_LobbyStartCode(int host, const char *code) {
     struct sockaddr_in local;
@@ -1991,6 +2006,7 @@ int Port_LobbyStartCode(int host, const char *code) {
     }
     sLobbyRole = host ? 1 : 2;
     sCodeMode = 1;
+    sCodeQuick = sQuickQueue >= 0;
     sCodeAddrs = 0;
     sCodeSeenSet = 0;
     sCodeGen = sCodeRelayGen = 0;
@@ -2033,6 +2049,7 @@ void Port_LobbyCancel(void) {
     }
     sLobby = 0;
     sLanMode = 0;
+    sCodeQuick = 0;
     sLobbyPeerName[0] = '\0';
 }
 
@@ -2228,7 +2245,7 @@ int Port_LobbyPoll(void) {
 
 void Port_LobbyLaunch(void);
 
-/* BT3_LOBBY=host or BT3_LOBBY=join:CODE: the room-code lobby driven without its window, once a blank (tests; the
+/* BT3_LOBBY=host[:QUEUE] or BT3_LOBBY=join:CODE: the room-code lobby driven without its window, once a blank (tests; the
    code and each change of state are written to the log). BT3_RELAY_ONLY=1: the one who joins tries nothing but the
    host's relay address. */
 static void lobby_background(void);
@@ -2245,7 +2262,23 @@ void Port_LobbyAuto(void) {
         begun = 1;
         if (getenv("BT3_NET_BOT") != NULL && getenv("BT3_NET_NAME") != NULL)
             Port_NetNameSet(getenv("BT3_NET_NAME"));
-        if (strncmp(what, "quick:", 6) == 0) { /* BT3_LOBBY=quick:<queue>: a quick match (S, T, D10, D15, D20) */
+        if (strncmp(what, "host:", 5) == 0) { /* room-code host with explicit battle rules */
+            int q, type, dp;
+            for (q = 0; q < MATCH_QUEUES && strcmp(what + 5, kMatchQueues[q]) != 0; q++) {
+            }
+            if (q < MATCH_QUEUES) {
+                type = q == 0 ? 0 : q == 1 ? 1 : 2;
+                dp = q >= 2 ? q - 2 : 0;
+                Port_NetSpeedSet(NET_SPEED_STANDARD);
+                Port_NetRulesSet(type, dp, 4);
+                Port_NetOptions(Port_RollCan() ? 8 : 0, -2);
+                Port_LobbyStartCode(1, "");
+            } else {
+                fprintf(stderr, "bt3: lobby: unknown room mode '%s'\n", what + 5);
+                begun = 2;
+                return;
+            }
+        } else if (strncmp(what, "quick:", 6) == 0) { /* BT3_LOBBY=quick:<queue>: a quick match (S, T, D10, D15, D20) */
             int q, type, dp;
             for (q = 0; q < MATCH_QUEUES && strcmp(what + 6, kMatchQueues[q]) != 0; q++) {
             }
@@ -2295,6 +2328,7 @@ void Port_LobbyAuto(void) {
 /* The other player is there: start the session. */
 void Port_LobbyLaunch(void) {
     sLanSession = sLanMode;
+    sCodeSession = sCodeMode && !sCodeQuick;
     if (sCodeMode && Port_SessionCan()) {
         sHandSock = sSock; /* the session goes on with this socket (see sHandSock) */
     } else {

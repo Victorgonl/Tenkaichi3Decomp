@@ -2256,36 +2256,42 @@ s32 TeamSel_Run(s32 section) {
             continue;
         }
 #ifdef PORT
-        if (Port_NetBotSide() == 1 && gTeamSel->players == TEAMSEL_PLAYERS_TWO &&
-            !(gTeamSel->flags & TEAMSEL_STAGE) && gTeamSel->side[1]->state != TEAMSEL_ST_DONE) {
-            if (!botPicked && gTeamSel->side[1]->state == TEAMSEL_ST_GRID) {
-                s32 start = Rand_Range(gTeamSel->masterCount[1]);
+        if (Port_NetBotSide() >= 0 && gTeamSel->players == TEAMSEL_PLAYERS_TWO &&
+            !(gTeamSel->flags & TEAMSEL_STAGE) &&
+            gTeamSel->side[Port_NetBotSide()]->state != TEAMSEL_ST_DONE) {
+            s32 side = Port_NetBotSide();
+            if (!botPicked && gTeamSel->side[side]->state == TEAMSEL_ST_GRID) {
+                s32 start = Rand_Range(gTeamSel->masterCount[side]);
                 s32 k;
-                for (k = 0; k < gTeamSel->masterCount[1]; k++) {
-                    s32 cell = (start + k) % gTeamSel->masterCount[1];
-                    s32 chara = gTeamSel->cells[1][cell].id;
-                    if (chara >= 0 && chara < TS_RANDOM && gTeamSel->cells[1][cell].formCount == 0 &&
-                        TeamSel_FitsDp(1, chara)) {
-                        TsMember *member = &gTeamSel->side[1]->member[gTeamSel->side[1]->cur];
-                        TeamSel_ClipGoto(4, 1, TEAMSEL_CLIP_CHIP, "fl_off_start");
+                for (k = 0; k < gTeamSel->masterCount[side]; k++) {
+                    s32 cell = (start + k) % gTeamSel->masterCount[side];
+                    s32 chara = gTeamSel->cells[side][cell].id;
+                    if (chara >= 0 && chara < TS_RANDOM && gTeamSel->cells[side][cell].formCount == 0 &&
+                        TeamSel_FitsDp(side, chara)) {
+                        TsMember *member = &gTeamSel->side[side]->member[gTeamSel->side[side]->cur];
+                        TeamSel_ClipGoto(side + 3, side, TEAMSEL_CLIP_CHIP, "fl_off_start");
                         member->col = cell % TS_COLS;
                         member->row = cell / TS_COLS;
-                        TeamSel_SetChips(1);
-                        gTeamSel->side[1]->chara = gTeamSel->side[1]->chip[0][member->col];
-                        TeamSel_RequestFace(1);
-                        TeamSel_ClipGoto(4, 1, TEAMSEL_CLIP_CHIP, "fl_on_start");
+                        TeamSel_SetChips(side);
+                        gTeamSel->side[side]->chara = gTeamSel->side[side]->chip[0][member->col];
+                        TeamSel_RequestFace(side);
+                        TeamSel_ClipGoto(side + 3, side, TEAMSEL_CLIP_CHIP, "fl_on_start");
                         botPicked = 1;
                         break;
                     }
                 }
             }
             if (botPicked && ++botWait >= 20) {
-                if (gTeamSel->side[1]->state == TEAMSEL_ST_TEAM && gTeamSel->side[1]->cur != TS_CUR_MENU)
-                    gPad[1].gameRepeat |= 2;
+                if (gTeamSel->side[side]->state == TEAMSEL_ST_TEAM && gTeamSel->side[side]->cur != TS_CUR_MENU)
+                    gPad[side].gameRepeat |= 2;
                 else
-                    gPad[1].gamePressed |= 0x200;
+                    gPad[side].gamePressed |= 0x200;
                 botWait = 0;
             }
+        } else if (Port_NetBotSide() == 0 && (gTeamSel->flags & TEAMSEL_STAGE) &&
+                   gTeamSel->stage->state == TEAMSEL_STAGE_GRID && ++botWait >= 45) {
+            gPad[0].gamePressed |= 0x200;
+            botWait = 0;
         }
 #endif
         TeamSel_Input(&result);
@@ -2343,10 +2349,11 @@ s32 TeamSel_Run(s32 section) {
             BattleSetup_SetSide(1, 2, 1, gTeamSel->side[1]->memberCount, handicap[1], 1, 0, NULL);
             break;
         case TEAMSEL_PLAYERS_TWO:
-            BattleSetup_SetSide(0, 0, 0, gTeamSel->side[0]->memberCount, 1, 1, 0, NULL);
 #ifdef PORT
+            BattleSetup_SetSide(0, Port_NetBotSide() == 0 ? 2 : 0, 0, gTeamSel->side[0]->memberCount, 1, 1, 0, NULL);
             BattleSetup_SetSide(1, Port_NetBotSide() == 1 ? 2 : 0, 1, gTeamSel->side[1]->memberCount, 1, 1, 0, NULL);
 #else
+            BattleSetup_SetSide(0, 0, 0, gTeamSel->side[0]->memberCount, 1, 1, 0, NULL);
             BattleSetup_SetSide(1, 0, 1, gTeamSel->side[1]->memberCount, 1, 1, 0, NULL);
 #endif
             break;
@@ -2360,7 +2367,7 @@ s32 TeamSel_Run(s32 section) {
                 BattleSetup_SetMember(i, j, gTeamSel->side[i]->member[j].chara, gTeamSel->side[i]->member[j].color,
                                       0,
 #ifdef PORT
-                                      i == 1 && Port_NetBotSide() == 1 ? Port_NetBotLevel() : cpuLevel,
+                                      i == Port_NetBotSide() ? Port_NetBotLevel() : cpuLevel,
 #else
                                       cpuLevel,
 #endif

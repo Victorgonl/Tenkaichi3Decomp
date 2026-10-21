@@ -1934,31 +1934,37 @@ s32 CharSel_Run(s32 section) {
             }
         } else {
 #ifdef PORT
-            if (Port_NetBotSide() == 1 && gCharSel->players == 1 &&
-                !(gCharSel->flags & CHARSEL_STAGE_PHASE) && gCharSel->side[1]->state != CHARSEL_ST_DONE) {
-                if (!botPicked && gCharSel->side[1]->state == CHARSEL_ST_GRID) {
-                    s32 start = Rand_Range(gCharSel->masterCount[1]);
+            if (Port_NetBotSide() >= 0 && gCharSel->players == 1 &&
+                !(gCharSel->flags & CHARSEL_STAGE_PHASE) &&
+                gCharSel->side[Port_NetBotSide()]->state != CHARSEL_ST_DONE) {
+                s32 side = Port_NetBotSide();
+                if (!botPicked && gCharSel->side[side]->state == CHARSEL_ST_GRID) {
+                    s32 start = Rand_Range(gCharSel->masterCount[side]);
                     s32 k;
-                    for (k = 0; k < gCharSel->masterCount[1]; k++) {
-                        s32 cell = (start + k) % gCharSel->masterCount[1];
-                        if (gCharSel->cells[1][cell].id >= 0 && gCharSel->cells[1][cell].id < MCHR_RANDOM &&
-                            gCharSel->cells[1][cell].formCount == 0) {
-                            CharSel_ClipGoto(2, 1, CHARSEL_CLIP_CHIP, "fl_off_start");
-                            gCharSel->side[1]->col = cell % 7;
-                            gCharSel->side[1]->row = cell / 7;
-                            CharSel_SetRowChips(1);
-                            gCharSel->side[1]->chara = gCharSel->side[1]->chip[gCharSel->side[1]->col];
-                            CharSel_RequestFace(1);
-                            CharSel_ClipGoto(2, 1, CHARSEL_CLIP_CHIP, "fl_on_start");
+                    for (k = 0; k < gCharSel->masterCount[side]; k++) {
+                        s32 cell = (start + k) % gCharSel->masterCount[side];
+                        if (gCharSel->cells[side][cell].id >= 0 && gCharSel->cells[side][cell].id < MCHR_RANDOM &&
+                            gCharSel->cells[side][cell].formCount == 0) {
+                            CharSel_ClipGoto(side + 1, side, CHARSEL_CLIP_CHIP, "fl_off_start");
+                            gCharSel->side[side]->col = cell % 7;
+                            gCharSel->side[side]->row = cell / 7;
+                            CharSel_SetRowChips(side);
+                            gCharSel->side[side]->chara = gCharSel->side[side]->chip[gCharSel->side[side]->col];
+                            CharSel_RequestFace(side);
+                            CharSel_ClipGoto(side + 1, side, CHARSEL_CLIP_CHIP, "fl_on_start");
                             botPicked = 1;
                             break;
                         }
                     }
                 }
                 if (botPicked && ++botWait >= 20) {
-                    gPad[1].gamePressed |= 0x200;
+                    gPad[side].gamePressed |= 0x200;
                     botWait = 0;
                 }
+            } else if (Port_NetBotSide() == 0 && (gCharSel->flags & CHARSEL_STAGE_PHASE) &&
+                       gCharSel->stage->state == CHARSEL_ST_STAGE && ++botWait >= 45) {
+                gPad[0].gamePressed |= 0x200;
+                botWait = 0;
             }
 #endif
             CharSel_Input(&result);
@@ -2040,10 +2046,11 @@ s32 CharSel_Run(s32 section) {
             BattleSetup_SetSide(1, 2, 1, 1, flag[1], 1, 0, NULL);
             break;
         case 1:
-            BattleSetup_SetSide(0, 0, 0, 1, 1, 1, 0, NULL);
 #ifdef PORT
+            BattleSetup_SetSide(0, Port_NetBotSide() == 0 ? 2 : 0, 0, 1, 1, 1, 0, NULL);
             BattleSetup_SetSide(1, Port_NetBotSide() == 1 ? 2 : 0, 1, 1, 1, 1, 0, NULL);
 #else
+            BattleSetup_SetSide(0, 0, 0, 1, 1, 1, 0, NULL);
             BattleSetup_SetSide(1, 0, 1, 1, 1, 1, 0, NULL);
 #endif
             break;
@@ -2055,7 +2062,7 @@ s32 CharSel_Run(s32 section) {
         for (i = 0; i < 2; i++) {
             BattleSetup_SetMember(i, 0, gCharSel->side[i]->picked, gCharSel->side[i]->colorPlate, 0,
 #ifdef PORT
-                                  i == 1 && Port_NetBotSide() == 1 ? Port_NetBotLevel() : cpuLevel,
+                                  i == Port_NetBotSide() ? Port_NetBotLevel() : cpuLevel,
 #else
                                   cpuLevel,
 #endif

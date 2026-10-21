@@ -2,7 +2,7 @@
   "schema_version": 1,
   "labels_version": 2,
   "translation_version": 1,
-  "labels_count": 31,
+  "labels_count": 34,
   "locale": "en",
   "name": "English",
   "order": 1,
@@ -90,6 +90,14 @@
     "dragon-net/custom/team-20-dp": {
       "original": "20 DP Team Battle",
       "text": "20 DP Team Battle"
+    },
+    "dragon-net/friend/host": {
+      "original": "Host Battle",
+      "text": "Host Battle"
+    },
+    "dragon-net/friend/join": {
+      "original": "Join Battle",
+      "text": "Join Battle"
     },
     "dragon-net/friends/title": {
       "original": "Manage Friends",
