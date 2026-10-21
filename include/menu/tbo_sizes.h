@@ -102,5 +102,7 @@ static const u16 sTboWiiBattleLabelRow0[2][4] = {
 };
 /* Light-gray letter fill inside the idle row, excluding its purple outline. */
 static const u16 sTboWiiBattleLabelFillRow0[4] = {5, 4, 166, 23};
+/* First-row letter-fill heights: home, battle, settings. */
+static const u16 sTboWiiLabelCapHeight[3] = {17, 19, 21};
 
 #endif

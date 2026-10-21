@@ -494,6 +494,25 @@ static f32 Tb_WiiFocusStretch(void) {
     return 1.0f + (f32)(49 - frame) / 100.0f;
 }
 
+/* The Wii texture labels switch from their idle sheet to the selected sheet,
+   whose vertical scale follows Evolution Z's focused text loop. */
+static void Tb_WiiTextureLabel(s32 idle, s32 selected, f32 x, f32 y,
+                               f32 v0, f32 v1, s32 focusAlpha, u32 tint, u16 capHeight) {
+    /* EvoTop's normal and selected labels have a measured 19-pixel letter fill. */
+    const f32 size = 19.0f / (f32)capHeight;
+    const f32 middle = y + 16.0f;
+    if (focusAlpha < 0x80)
+        Ps_SpriteScreen(idle, x, middle - 16.0f * size,
+                        x + 512.0f * size, middle + 16.0f * size,
+                        0.0f, v0, 1.0f, v1, tint, 0x80 - focusAlpha);
+    if (focusAlpha > 0) {
+        f32 stretch = size * Tb_WiiFocusStretch();
+        f32 top = middle - 16.0f * stretch;
+        Ps_SpriteScreen(selected, x, top, x + 512.0f * size, top + 32.0f * stretch,
+                        0.0f, v0, 1.0f, v1, tint, focusAlpha);
+    }
+}
+
 /* Wii coordinates are screen pixels; menu text uses page coordinates. The
    selected layer replaces the idle layer as the Evolution Z clip switches. */
 static void Tb_WiiLabelText(char *label, f32 x, f32 y, s32 focusAlpha, u32 tint) {
@@ -549,7 +568,9 @@ static void Tb_WiiTitleText(s32 index, f32 x, f32 y, f32 scaleX, f32 scaleY, s32
     }
     f32 sx = 1.0f / (Ps_X(1.0f) - Ps_X(0.0f));
     f32 sy = 1.0f / (Ps_Y(1.0f) - Ps_Y(0.0f));
-    f32 textScale = 2.2f * scaleY * sy;
+    /* Evolution Z's heading face is 21 screen pixels high. Keep the Wii
+       title motion while matching that measured letter height. */
+    f32 textScale = (21.0f / (PS_CELL_UNITS * PS_CAP_OF_CELL)) * scaleY * sy;
     Ps_Heading((x - Ps_X(0.0f)) * sx,
                Ps_TextTop((y + 32.0f * scaleY - Ps_Y(0.0f)) * sy, textScale),
                sTbWiiText[index], textScale, 470.0f * scaleX * sx, alpha);
@@ -1860,12 +1881,10 @@ static void Tb_DrawWiiHomeArt(void) {
             Tb_WiiLabelText(sTbWiiHomeName[i], barX + 49.0f, y + 2.0f,
                             selectAlpha, tint);
         } else {
-            Ps_SpriteScreen(TBO_WII_LABEL_IDLE, barX + 49.0f, y + 2.0f, barX + 561.0f, y + 34.0f,
-                            0.0f, (f32)i * 0.25f, 1.0f, (f32)(i + 1) * 0.25f, tint, 0x80);
-            if (selectAlpha > 0)
-                Ps_SpriteScreen(TBO_WII_LABEL_SELECTED, barX + 49.0f, y + 2.0f,
-                                barX + 561.0f, y + 34.0f,
-                                0.0f, (f32)i * 0.25f, 1.0f, (f32)(i + 1) * 0.25f, tint, selectAlpha);
+            Tb_WiiTextureLabel(TBO_WII_LABEL_IDLE, TBO_WII_LABEL_SELECTED,
+                               barX + 49.0f, y + 2.0f,
+                               (f32)i * 0.25f, (f32)(i + 1) * 0.25f, selectAlpha, tint,
+                               sTboWiiLabelCapHeight[0]);
         }
     }
     /* The rows finish sliding in at source frame 17 (port frame 23).
@@ -2064,8 +2083,8 @@ static void Tb_DrawWiiBattle(void) {
                 /* Match the Wii sheet's idle and selected layers during focus fades. */
                 f32 pagePerScreenX = 1.0f / (Ps_X(1.0f) - Ps_X(0.0f));
                 f32 pagePerScreenY = 1.0f / (Ps_Y(1.0f) - Ps_Y(0.0f));
-                f32 screenScale = (f32)(sTboWiiBattleLabelFillRow0[3] - sTboWiiBattleLabelFillRow0[1]) /
-                                  (PS_CELL_UNITS * PS_CAP_OF_CELL);
+                /* Use the measured Evolution Z caption height here too. */
+                f32 screenScale = 19.0f / (PS_CELL_UNITS * PS_CAP_OF_CELL);
                 f32 scaleX = screenScale * pagePerScreenX;
                 f32 scaleY = screenScale * pagePerScreenY;
                 f32 textMiddle = (y + 2.0f + (f32)(sTboWiiBattleLabelFillRow0[1] +
@@ -2096,16 +2115,9 @@ static void Tb_DrawWiiBattle(void) {
             if (PortTbo_WiiUseFont() || sTbWiiTextEdited[TB_WII_TX_BATTLE_ROW + i])
                 Tb_WiiLabelText(sTbWiiBattleName[i], x + 49.0f, y + 5.0f, focusAlpha, tint);
             else {
-                Ps_SpriteScreen(TBO_WII_BATTLE_LABEL_IDLE, x + 49.0f, y + 5.0f,
-                                x + 561.0f, y + 37.0f,
-                                0.0f, v0, 1.0f, v1, tint, 0x80);
-                if (focusAlpha > 0) {
-                    f32 stretch = Tb_WiiFocusStretch();
-                    f32 top = y + 21.0f - 16.0f * stretch;
-                    Ps_SpriteScreen(TBO_WII_BATTLE_LABEL_SELECTED, x + 49.0f, top,
-                                    x + 561.0f, top + 32.0f * stretch,
-                                    0.0f, v0, 1.0f, v1, tint, focusAlpha);
-                }
+                Tb_WiiTextureLabel(TBO_WII_BATTLE_LABEL_IDLE, TBO_WII_BATTLE_LABEL_SELECTED,
+                                   x + 49.0f, y + 5.0f, v0, v1, focusAlpha, tint,
+                                   sTboWiiLabelCapHeight[1]);
             }
         }
     }
@@ -2302,14 +2314,10 @@ static void Tb_DrawWii(void) {
             if (PortTbo_WiiUseFont() || sTbWiiTextEdited[TB_WII_TX_SETTINGS_ROW + i])
                 Tb_WiiLabelText(sTbWiiSettingsName[i], 212.0f, y + 3.0f, focusAlpha, tint);
             else {
-                Ps_SpriteScreen(TBO_WII_SETTINGS_LABEL_IDLE,
-                                212.0f, y + 3.0f, 724.0f, y + 35.0f,
-                                0.0f, (f32)i * 0.5f, 1.0f, (f32)(i + 1) * 0.5f, tint, 0x80);
-                if (focusAlpha > 0)
-                    Ps_SpriteScreen(TBO_WII_SETTINGS_LABEL_SELECTED,
-                                    212.0f, y + 3.0f, 724.0f, y + 35.0f,
-                                    0.0f, (f32)i * 0.5f, 1.0f, (f32)(i + 1) * 0.5f,
-                                    tint, focusAlpha);
+                Tb_WiiTextureLabel(TBO_WII_SETTINGS_LABEL_IDLE, TBO_WII_SETTINGS_LABEL_SELECTED,
+                                   212.0f, y + 3.0f,
+                                   (f32)i * 0.5f, (f32)(i + 1) * 0.5f, focusAlpha, tint,
+                                   sTboWiiLabelCapHeight[2]);
             }
         }
         {
@@ -2364,7 +2372,8 @@ static void Tb_DrawWiiText(void) {
 
     for (i = 0; i < count; i++) {
         f32 y = y0 + 36.0f * (f32)i;
-        Ps_Text(44.0f, Ps_TextTop(y + 15.0f, 0.72f), names[i], 0.72f, 420.0f, i == cur ? 1 : 0);
+        f32 scale = 19.0f / ((Ps_Y(1.0f) - Ps_Y(0.0f)) * PS_CELL_UNITS * PS_CAP_OF_CELL);
+        Ps_Text(44.0f, Ps_TextTop(y + 15.0f, scale), names[i], scale, 420.0f, i == cur ? 1 : 0);
     }
 }
 

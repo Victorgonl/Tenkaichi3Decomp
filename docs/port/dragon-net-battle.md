@@ -142,5 +142,15 @@ Disabled font labels use the same dim tint as their Wii bars.
 Font labels use Evolution Z's 19-pixel plate-caption letter height in both
 states. Their focused layer replaces the idle layer during the four-frame
 selection change, then continues a looping vertical stretch while focused.
+The extracted texture labels on the home, battle, and settings pages use the
+same focused-layer fade and vertical stretch. Their size now uses Evolution Z's
+measured 19-pixel letter fill: the Wii home, battle, and settings sheets measure
+17, 19, and 21 pixels, so they draw at 19/17, 19/19, and 19/21 of source size.
+Both texture layers keep the original left edge and vertical center.
+The Custom Battle text and fallback submenu entries use the same 19-pixel
+letter height.
+Evolution Z's heading has a 21-pixel letter height. Dragon Net Battle's Wii
+title artwork and selected Menu font headings already match it; edited-title
+fallback text now uses that measured height through the same title animation.
 Text follows each bar's entrance motion. The first focused entry begins the
 effect after the page's rows finish entering.
