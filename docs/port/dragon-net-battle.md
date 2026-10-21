@@ -90,3 +90,4 @@ after a fade; Giru enters from the left at the name editor's size, and the title
 animation after the fade. Pan does not appear or speak on this page. The battle entries sit below the header and
 show neutral descriptions without character dialogue. The other lower Wii menu pages currently use the port's
 drawn UI over the decoded landscape.
+Focusing Ranking Battle or View Ranking shows the Wii Fighting Point panel on the left with `0000` as a placeholder.

@@ -53,6 +53,9 @@ WII_BATTLE = {
     "wii_battle_giru": (2, 0),
     "wii_battle_giru_eye_bright": (2, 1),
     "wii_battle_giru_eye_dim": (2, 2),
+    "wii_battle_point_panel": (3, 6),
+    "wii_battle_point_label": (3, 41),
+    "wii_battle_point_digits": (3, 5),
 }
 WII_BATTLE.update({f"wii_battle_bg_{i}": (1, i) for i in range(8)})
 

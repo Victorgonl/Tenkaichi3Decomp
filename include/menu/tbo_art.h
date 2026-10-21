@@ -83,7 +83,10 @@
     X(TBO_WII_BATTLE_BG_7, "wii_battle_bg_7") \
     X(TBO_WII_BATTLE_GIRU, "wii_battle_giru") \
     X(TBO_WII_BATTLE_GIRU_EYE_BRIGHT, "wii_battle_giru_eye_bright") \
-    X(TBO_WII_BATTLE_GIRU_EYE_DIM, "wii_battle_giru_eye_dim")
+    X(TBO_WII_BATTLE_GIRU_EYE_DIM, "wii_battle_giru_eye_dim") \
+    X(TBO_WII_BATTLE_POINT_PANEL, "wii_battle_point_panel") \
+    X(TBO_WII_BATTLE_POINT_LABEL, "wii_battle_point_label") \
+    X(TBO_WII_BATTLE_POINT_DIGITS, "wii_battle_point_digits")
 
 #define TBO_ART_ENUM(id, name) id,
 enum { TBO_ART_LIST(TBO_ART_ENUM) TBO_ART_COUNT };

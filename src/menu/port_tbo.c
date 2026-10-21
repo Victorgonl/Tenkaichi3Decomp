@@ -1779,6 +1779,20 @@ static void Tb_DrawWiiBattle(void) {
                     giruX, giruY, giruX + TB_WII_SUB_GIRU_W, giruY + TB_WII_SUB_GIRU_H,
                     0.0f, 0.0f, 1.0f, 1.0f, PS_PLAIN, 0x80);
 
+    if ((sTb->wiiBattleCur == 3 || sTb->wiiBattleCur == 4) && sTb->wiiBattleT >= 30) {
+        /* The Wii's ranking-side panel. The displayed points are a four-digit
+           placeholder until ranking data exists in the port. */
+        Ps_SpriteScreen(TBO_WII_BATTLE_POINT_PANEL, -40.0f, 234.0f, 172.0f, 344.0f,
+                        0.0f, 0.0f, 1.0f, 1.0f, PS_PLAIN, 0x80);
+        Ps_SpriteScreen(TBO_WII_BATTLE_POINT_LABEL, 15.0f, 239.0f, 220.0f, 271.0f,
+                        0.0f, 0.0f, 1.0f, 0.5f, PS_PLAIN, 0x80);
+        for (i = 0; i < 4; i++) {
+            f32 x = 66.0f + (f32)i * 16.0f;
+            Ps_SpriteScreen(TBO_WII_BATTLE_POINT_DIGITS, x, 270.0f, x + 32.0f, 302.0f,
+                            0.0f, 0.0f, 0.25f, 0.25f, PS_PLAIN, 0x80);
+        }
+    }
+
     for (i = 0; i < 6; i++) {
         f32 x = 170.0f + (1.0f - Tb_In(i * 2)) * 512.0f;
         f32 y = 67.0f + (f32)i * 42.0f;
@@ -1800,9 +1814,9 @@ static void Tb_DrawWiiBattle(void) {
     }
     if (sTb->wiiBattleT >= 20) {
         f32 radarY = 84.0f + (f32)sTb->wiiBattleCur * 42.0f;
-        Ps_SpriteScreen(TBO_WII_RADAR, 176.0f - 32.0f * radarScale,
+        Ps_SpriteScreen(TBO_WII_RADAR, 196.0f - 32.0f * radarScale,
                         radarY - 32.0f * radarScale,
-                        176.0f + 32.0f * radarScale, radarY + 32.0f * radarScale,
+                        196.0f + 32.0f * radarScale, radarY + 32.0f * radarScale,
                         0.0f, 0.0f, 1.0f, 1.0f, disabled, 0x80);
     }
     IconWin_PortHeadingMotion(sTb->wiiBattleT, &iconDx, &iconDy, &iconAlpha,
