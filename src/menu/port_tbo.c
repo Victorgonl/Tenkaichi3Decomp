@@ -46,6 +46,7 @@ extern void MsgWin_PortSameTop(void);
 extern s32 Port_WiiArtAvailable(void);
 extern s32 PortTbo_WiiTextCopy(s32 index, char *out, s32 capacity);
 extern s32 PortTbo_WiiUseFont(void);
+extern s32 PortTbo_WiiUseFontForArtwork(s32 textKind);
 extern s32 PortTbo_TextId(const char *text, s32 kind);
 extern s32 Port_DcNameOpen(void);
 extern void Port_DcNameClose(void);
@@ -1902,7 +1903,7 @@ static void Tb_DrawWiiHomeArt(void) {
         if (selectAlpha > 0)
             Ps_SpriteScreen(TBO_WII_BAR_GOLD, barX, y, barX + 461.0f, y + 58.0f,
                             0.0f, 0.0f, 1.0f, 1.0f, tint, selectAlpha);
-        if (PortTbo_WiiUseFont() || sTbWiiTextEdited[TB_WII_TX_HOME_ROW + i]) {
+        if (PortTbo_WiiUseFontForArtwork(sTbWiiTextEdited[TB_WII_TX_HOME_ROW + i])) {
             Tb_WiiLabelText(sTbWiiHomeName[i], barX + 49.0f, y + 2.0f,
                             selectAlpha, tint);
         } else {
@@ -1925,7 +1926,7 @@ static void Tb_DrawWiiHomeArt(void) {
                         radarAlpha);
     }
     /* The native mc_title grows horizontally from its left edge. */
-    if (PortTbo_WiiUseFont() || sTbWiiTextEdited[TB_WII_TX_HOME_TITLE])
+    if (PortTbo_WiiUseFontForArtwork(sTbWiiTextEdited[TB_WII_TX_HOME_TITLE]))
         Tb_WiiTitleText(TB_WII_TX_HOME_TITLE, 62.0f + titleDx, 17.0f + titleDy,
                         titleScaleX, titleScaleY, titleAlpha);
     else
@@ -2106,7 +2107,7 @@ static void Tb_DrawWiiBattle(void) {
                menu-label rasterizer with the first Menu font on Original. */
             Tb_WiiLabelText(sTbWiiCustomName[i], x + 46.0f, y + 4.0f, focusAlpha, tint);
         } else {
-            if (PortTbo_WiiUseFont() || sTbWiiTextEdited[TB_WII_TX_BATTLE_ROW + i])
+            if (PortTbo_WiiUseFontForArtwork(sTbWiiTextEdited[TB_WII_TX_BATTLE_ROW + i]))
                 Tb_WiiLabelText(sTbWiiBattleName[i], x + 49.0f, y + 5.0f, focusAlpha, tint);
             else {
                 Tb_WiiTextureLabel(TBO_WII_BATTLE_LABEL_IDLE, TBO_WII_BATTLE_LABEL_SELECTED,
@@ -2129,7 +2130,7 @@ static void Tb_DrawWiiBattle(void) {
     IconWin_PortHeadingMotion(sTb->wiiBattleT, &iconDx, &iconDy, &iconAlpha,
                               &iconScaleX, &iconScaleY, &titleDx, &titleDy,
                               &titleAlpha, &titleScaleX, &titleScaleY);
-    if (PortTbo_WiiUseFont() || sTbWiiTextEdited[custom ? TB_WII_TX_CUSTOM_TITLE : TB_WII_TX_BATTLE_TITLE])
+    if (PortTbo_WiiUseFontForArtwork(sTbWiiTextEdited[custom ? TB_WII_TX_CUSTOM_TITLE : TB_WII_TX_BATTLE_TITLE]))
         Tb_WiiTitleText(custom ? TB_WII_TX_CUSTOM_TITLE : TB_WII_TX_BATTLE_TITLE,
                         62.0f + titleDx, 17.0f + titleDy, titleScaleX, titleScaleY, titleAlpha);
     else
@@ -2208,7 +2209,7 @@ static void Tb_DrawWiiVs(void) {
     IconWin_PortHeadingMotion(sTb->wiiBattleT, &iconDx, &iconDy, &iconAlpha,
                               &iconScaleX, &iconScaleY, &titleDx, &titleDy,
                               &titleAlpha, &titleScaleX, &titleScaleY);
-    if (PortTbo_WiiUseFont() || sTbWiiTextEdited[TB_WII_TX_CUSTOM_TITLE])
+    if (PortTbo_WiiUseFontForArtwork(sTbWiiTextEdited[TB_WII_TX_CUSTOM_TITLE]))
         Tb_WiiTitleText(TB_WII_TX_CUSTOM_TITLE, 62.0f + titleDx, 17.0f + titleDy,
                         titleScaleX, titleScaleY, titleAlpha);
     else
@@ -2305,7 +2306,7 @@ static void Tb_DrawWii(void) {
             if (focusAlpha > 0)
                 Ps_SpriteScreen(TBO_WII_BAR_GOLD, 162.0f, y, 623.0f, y + 58.0f,
                                 0.0f, 0.0f, 1.0f, 1.0f, tint, focusAlpha);
-            if (PortTbo_WiiUseFont() || sTbWiiTextEdited[TB_WII_TX_SETTINGS_ROW + i])
+            if (PortTbo_WiiUseFontForArtwork(sTbWiiTextEdited[TB_WII_TX_SETTINGS_ROW + i]))
                 Tb_WiiLabelText(sTbWiiSettingsName[i], 212.0f, y + 3.0f, focusAlpha, tint);
             else {
                 Tb_WiiTextureLabel(TBO_WII_SETTINGS_LABEL_IDLE, TBO_WII_SETTINGS_LABEL_SELECTED,
@@ -2322,7 +2323,7 @@ static void Tb_DrawWii(void) {
                         sTb->wiiSubCur == 1 ? Ps_Rgba(0x58, 0x58, 0x58, 0x80) : PS_PLAIN,
                         0x80);
         }
-        if (PortTbo_WiiUseFont() || sTbWiiTextEdited[TB_WII_TX_SETTINGS_TITLE])
+        if (PortTbo_WiiUseFontForArtwork(sTbWiiTextEdited[TB_WII_TX_SETTINGS_TITLE]))
             Tb_WiiTitleText(TB_WII_TX_SETTINGS_TITLE, 62.0f + titleDx, 17.0f + titleDy,
                             titleScaleX, titleScaleY, titleAlpha);
         else

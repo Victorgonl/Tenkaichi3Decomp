@@ -82,7 +82,10 @@ if an older extraction has no `home-motion.bin`; the renderer logs which source 
 movie's five-frame highlight transition. The European archive has five DragonNe dialogue banks, decoded to
 `home-subtitles-{en,es,de,fr,it}.bin` with 44 lines each. It also supplies five sets of headings,
 option labels, and Create Player Name artwork, including its button captions, under
-`languages/{en,es,de,fr,it}/`.
+`languages/{en,es,de,fr,it}/`. The Nintendo WFC Battle and Custom Battle
+headings, battle option labels, Fighting Point label, and VS record captions
+come from each language's section 1 pack under `languages/<locale>/section-01/`.
+Older extractions without those sheets fall back to the original English art.
 The extractor also writes `menu-text-{en,es,de,fr,it}.bin` with all 66 Wii menu
 messages, including the six battle descriptions and opponent-search status.
 Every extracted Wii dialog line has a stable ID in `game-text/translations/ui/<locale>.json`:
@@ -147,9 +150,10 @@ Create Player Name keyboard title always uses its Wii artwork.
 Fighting Point always uses its Wii artwork. Restart the game to load changes.
 
 With **Menu font: Original**, unchanged labels with Wii artwork use it;
-edited labels and the Custom Battle entries use font text. Selecting any other Menu font renders all
-entries and headers through the same row renderer and Evolution Z menu styles,
-including unchanged English text. The Wii rows keep their screen
+edited labels and the Custom Battle entries use font text. With another Menu font,
+art-backed labels and headers keep their Wii artwork unless the selected menu
+language supplies translated port text for that entry. English menu text uses
+the selected font in English. The Wii rows keep their screen
 positions and the headers keep their entrance animation. Longer wording is
 fitted to its available width. The screen reader uses the edited entries and
 headers as well, while the keyboard title remains artwork.

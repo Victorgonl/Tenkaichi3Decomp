@@ -452,8 +452,25 @@ def online_locales(afs, matches):
     return ("en",)
 
 
+def extract_battle_art(section, art_root, locale):
+    """Save the Wii battle page's language-dependent lettering sheets."""
+    positions = table(section, f"{locale} section 1")
+    wanted = {3: {29, 30, 41, 42}, 4: {1, 2}}
+    for resource_index, indices in wanted.items():
+        resource = section[positions[resource_index]:positions[resource_index + 1]]
+        folder = art_root / locale / "section-01" / f"resource-{resource_index:03d}-textures"
+        folder.mkdir(parents=True, exist_ok=True)
+        found = set()
+        for texture_index, width, height, pixels in textures(resource):
+            if texture_index in indices:
+                png(folder / f"texture-{texture_index:03d}.png", width, height, pixels)
+                found.add(texture_index)
+        if found != indices:
+            raise ValueError(f"{locale} battle art resource {resource_index} lacks textures {sorted(indices - found)}")
+
+
 def extract_menu_art(afs, out, matches):
-    """Decode the language-specific Wii headings, labels, and name screen."""
+    """Decode language-specific Wii headings, labels, battle lettering, and name screen."""
     art_root = out / "languages"
     if art_root.exists():
         shutil.rmtree(art_root)
@@ -474,6 +491,8 @@ def extract_menu_art(afs, out, matches):
         folder.mkdir(parents=True, exist_ok=True)
         for texture_index, width, height, pixels in textures(resource[parts[2]:parts[3]]):
             png(folder / f"texture-{texture_index:03d}.png", width, height, pixels)
+        battle = bpe(pack[boundaries[1]:boundaries[2]], f"{locale} section 1")
+        extract_battle_art(battle, art_root, locale)
 
 
 def menu_text(text_data, out, locale):

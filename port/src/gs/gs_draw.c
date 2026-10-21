@@ -716,7 +716,10 @@ static GsTex tbo_texture(uint32_t id) {
         if (id == TBO_WII_TITLE || id == TBO_WII_SETTINGS_TITLE ||
             id == TBO_WII_LABEL_SELECTED || id == TBO_WII_LABEL_IDLE ||
             id == TBO_WII_SETTINGS_LABEL_SELECTED || id == TBO_WII_SETTINGS_LABEL_IDLE ||
-            id == TBO_WII_NAME_TITLE || id == TBO_WII_NAME_BUTTON_LABELS) {
+            id == TBO_WII_NAME_TITLE || id == TBO_WII_NAME_BUTTON_LABELS ||
+            id == TBO_WII_BATTLE_TITLE || id == TBO_WII_CUSTOM_TITLE ||
+            id == TBO_WII_BATTLE_LABEL_IDLE || id == TBO_WII_BATTLE_LABEL_SELECTED ||
+            id == TBO_WII_BATTLE_POINT_LABEL || id == TBO_WII_VS_RECORD_LABELS) {
             MenuTranslation_Ensure();
             const char *selected = MenuTranslation_Locale();
             const char *locale = "en";
@@ -736,6 +739,9 @@ static GsTex tbo_texture(uint32_t id) {
                 if (wiiPart >= 0)
                     snprintf(path, sizeof(path), "%sgamedata/dragon-net-battle/languages/%.2s/resource-%03d-part-%02d-textures/texture-%03d.png",
                              roots[rootIndex], locale, wiiResource, wiiPart, wiiTexture);
+                else if (wiiSection == 1)
+                    snprintf(path, sizeof(path), "%sgamedata/dragon-net-battle/languages/%.2s/section-01/resource-%03d-textures/texture-%03d.png",
+                             roots[rootIndex], locale, wiiResource, wiiTexture);
                 else
                     snprintf(path, sizeof(path), "%sgamedata/dragon-net-battle/languages/%.2s/resource-%03d-textures/texture-%03d.png",
                              roots[rootIndex], locale, wiiResource, wiiTexture);

@@ -14,6 +14,7 @@
  * Nothing here is game state: the screens are a menu of the PC's, before and outside an online match.
  */
 #include "menu_text.h"
+#include "menu_translation.h"
 #include "../../../include/menu/tbo_art.h"
 #include <SDL3/SDL.h>
 #include <pthread.h>
@@ -37,8 +38,15 @@ static TboLine sLines[TBO_TEXT_SLOTS];
 static uint32_t sVersion;
 static pthread_mutex_t sLock = PTHREAD_MUTEX_INITIALIZER;
 
-/* Wii labels retain their artwork only with the Original Menu font. */
+/* Whether the selected Menu font is active for text that actually has wording
+   in the selected language. Port catalog flag 2 means a locale-specific row. */
 int PortTbo_WiiUseFont(void) { return MenuText_GetFont() != 0; }
+int PortTbo_WiiUseFontForArtwork(int textKind) {
+    const char *locale = MenuTranslation_Locale();
+    if (locale != NULL && strncmp(locale, "en", 2) != 0)
+        return textKind == 2;
+    return MenuText_GetFont() != 0 || textKind != 0;
+}
 
 /* The size the letters are drawn at, by kind (capitals, in pixels: the screens show them smaller, from smaller
    copies), and the outline's thickness: as the letter sheet had it, about a 16th of the capitals. */

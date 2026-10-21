@@ -75,6 +75,7 @@ static TrGroup sGroups[TR_MAX_GROUPS];
 static const char *sStage[36], *sSong[24], *sItem, *sItemOriginal;
 static char sMain[1024], sMainOriginal[1024], sLocale[16];
 static char sPortText[TR_PORT_TEXT_COUNT][TR_PORT_TEXT_MAX];
+static unsigned char sPortLocalized[TR_PORT_TEXT_COUNT];
 static int sNRows, sNGroups, sReady;
 static int sBootChoiceMade;
 static pthread_mutex_t sLock = PTHREAD_MUTEX_INITIALIZER;
@@ -191,6 +192,7 @@ static void tr_clear(void) {
     __atomic_store_n(&sReady, 0, __ATOMIC_RELEASE);
     sItem = sItemOriginal = NULL; sMain[0] = sMainOriginal[0] = 0; sLocale[0] = 0;
     memset(sPortText, 0, sizeof(sPortText));
+    memset(sPortLocalized, 0, sizeof(sPortLocalized));
 }
 static TrRow *tr_find(const char *id) {
     int i;
@@ -341,8 +343,10 @@ static void tr_port_load(const char *outDir, const char *locale) {
             snprintf(sPortText[i], sizeof(sPortText[i]), "%s", catalog.text[i]);
     }
     if (strcmp(locale, "en") && tr_port_read(outDir, locale, &catalog)) {
-        for (i = 0; i < TR_PORT_TEXT_COUNT; i++) if (catalog.present[i])
+        for (i = 0; i < TR_PORT_TEXT_COUNT; i++) if (catalog.present[i]) {
             snprintf(sPortText[i], sizeof(sPortText[i]), "%s", catalog.text[i]);
+            sPortLocalized[i] = strcmp(catalog.text[i], kPortText[i].original) != 0;
+        }
     }
 }
 static const char *tr_resolve(TrRow *r, int depth) {
@@ -945,7 +949,8 @@ int PortTbo_WiiTextCopy(int index, char *out, int capacity) {
     resolved = MenuTranslation_PortText(kPortText[index + 3].id);
     if (!resolved) resolved = original;
     snprintf(out, (size_t)capacity, "%s", resolved);
-    return strcmp(out, original) != 0;
+    /* 1: edited English fallback; 2: this menu language supplies the text. */
+    return strcmp(out, original) == 0 ? 0 : sPortLocalized[index + 3] ? 2 : 1;
 }
 const char *MenuTranslation_Original(const char *id) { TrRow *r = __atomic_load_n(&sReady, __ATOMIC_ACQUIRE) ? tr_find(id) : NULL; return r != NULL ? r->original : NULL; }
 const char *MenuTranslation_Group(const char *id) { int i; if (!__atomic_load_n(&sReady, __ATOMIC_ACQUIRE)) return NULL; for (i = 0; i < sNGroups; i++) if (strcmp(sGroups[i].id, id) == 0) return sGroups[i].text; return NULL; }
