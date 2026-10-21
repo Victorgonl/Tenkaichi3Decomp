@@ -20,6 +20,20 @@ firewall. The direct LAN greeting includes the selected battle mode; different e
 starting a match. Set `BT3_LAN=online` to use the public quick-match queues (S, T, D10, D15, D20); that service may
 require an official signed release. Alternatively, test those queues with your own Worker via `BT3_MATCH_URL`; see
 [the Worker setup](../../port/matchmaking/README.md).
+
+For a local CPU opponent, start the human game with `BT3_LAN=host` and choose a Battle Net mode. In another
+terminal, run `python3 port/tools/lan_bot.py`, then enter `1v1`, `team`, `dp10`, `dp15`, or `dp20` at its prompt.
+Use `level 1` through `level 5` to set the game's CPU difficulty (3 by default), or enter a mode and level together,
+such as `1v1 5`. Changing the level while the bot is running restarts it, so choose the level before a match.
+Enter `exit` to close the bot's game and quit; entering another mode restarts the bot in that mode. You can also
+pass an initial mode and level, such as `python3 port/tools/lan_bot.py 1v1 --level 5`. The bot's game runs without a window or sound.
+It joins only the
+matching LAN queue, picks a random available character on the select screen, and uses the game's CPU AI in battle.
+If the bot wins, it selects **Return to Character Select** and confirms **Yes** in the result menu, so the session
+can continue with another character selection.
+Use `--host ADDRESS` when the human game is on another machine, `--game PATH` to select a different built executable,
+or `--name NAME` to change the bot's displayed name. The bot defaults to `port/build/bt3_64`.
+
 The separate **Tenkaichi Budokai Online** plate still opens its in-game hub.
 Manage Friends and Initialize Wi-Fi Data stay in the menu with a dimmed appearance when unfocused. Both can
 receive focus and play the selection sound, but they do not open a screen because their online services are

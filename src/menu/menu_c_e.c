@@ -1887,6 +1887,11 @@ s32 CharSel_Run(s32 section) {
     s32 unk10;
     s32 cpuLevel;
     s32 i;
+#ifdef PORT
+    s32 botPicked = 0, botWait = 0;
+    extern int Port_NetBotSide(void);
+    extern int Port_NetBotLevel(void);
+#endif
 
     CharSel_Init(section);
     ColorFade_StartIn(0, 0, 0, 0x14);
@@ -1928,6 +1933,34 @@ s32 CharSel_Run(s32 section) {
                 CSPROG->bgm = gCharSel->bgmIds[gCharSel->stage->bgmPlaying];
             }
         } else {
+#ifdef PORT
+            if (Port_NetBotSide() == 1 && gCharSel->players == 1 &&
+                !(gCharSel->flags & CHARSEL_STAGE_PHASE) && gCharSel->side[1]->state != CHARSEL_ST_DONE) {
+                if (!botPicked && gCharSel->side[1]->state == CHARSEL_ST_GRID) {
+                    s32 start = Rand_Range(gCharSel->masterCount[1]);
+                    s32 k;
+                    for (k = 0; k < gCharSel->masterCount[1]; k++) {
+                        s32 cell = (start + k) % gCharSel->masterCount[1];
+                        if (gCharSel->cells[1][cell].id >= 0 && gCharSel->cells[1][cell].id < MCHR_RANDOM &&
+                            gCharSel->cells[1][cell].formCount == 0) {
+                            CharSel_ClipGoto(2, 1, CHARSEL_CLIP_CHIP, "fl_off_start");
+                            gCharSel->side[1]->col = cell % 7;
+                            gCharSel->side[1]->row = cell / 7;
+                            CharSel_SetRowChips(1);
+                            gCharSel->side[1]->chara = gCharSel->side[1]->chip[gCharSel->side[1]->col];
+                            CharSel_RequestFace(1);
+                            CharSel_ClipGoto(2, 1, CHARSEL_CLIP_CHIP, "fl_on_start");
+                            botPicked = 1;
+                            break;
+                        }
+                    }
+                }
+                if (botPicked && ++botWait >= 20) {
+                    gPad[1].gamePressed |= 0x200;
+                    botWait = 0;
+                }
+            }
+#endif
             CharSel_Input(&result);
         }
     }
@@ -2008,7 +2041,11 @@ s32 CharSel_Run(s32 section) {
             break;
         case 1:
             BattleSetup_SetSide(0, 0, 0, 1, 1, 1, 0, NULL);
+#ifdef PORT
+            BattleSetup_SetSide(1, Port_NetBotSide() == 1 ? 2 : 0, 1, 1, 1, 1, 0, NULL);
+#else
             BattleSetup_SetSide(1, 0, 1, 1, 1, 1, 0, NULL);
+#endif
             break;
         case 2:
             BattleSetup_SetSide(0, 2, 0, 1, flag[0], 1, 0, NULL);
@@ -2016,7 +2053,13 @@ s32 CharSel_Run(s32 section) {
             break;
         }
         for (i = 0; i < 2; i++) {
-            BattleSetup_SetMember(i, 0, gCharSel->side[i]->picked, gCharSel->side[i]->colorPlate, 0, cpuLevel, 100.0f,
+            BattleSetup_SetMember(i, 0, gCharSel->side[i]->picked, gCharSel->side[i]->colorPlate, 0,
+#ifdef PORT
+                                  i == 1 && Port_NetBotSide() == 1 ? Port_NetBotLevel() : cpuLevel,
+#else
+                                  cpuLevel,
+#endif
+                                  100.0f,
                                   gCharSel->side[i]->items.id);
         }
         BattleSetup_Finish();

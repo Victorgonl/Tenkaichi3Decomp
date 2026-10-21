@@ -260,6 +260,7 @@ extern const char *Port_NetNameGet(void);
 extern void Port_NetNameSave(const char *name);
 extern int Port_LobbyStartCode(int host, const char *code);
 extern int Port_LobbyStartLan(int host, const char *address, int port, int queue);
+extern int Port_LanChoice(char *address, int capacity);
 extern const char *Port_LobbyPeerName(void);
 extern int Port_LobbyPoll(void);
 extern void Port_LobbyCancel(void);
@@ -1007,7 +1008,8 @@ static void Tb_QuickUpdate(s32 live) {
 /* Both Wii format pages share the PC quick-match queues, in their original order. */
 static void Tb_WiiCustomSearchStart(void) {
     s32 queue = sTb->wiiCustomCur + (sTb->wiiNormalBattle ? 2 : 0);
-    const char *lan = getenv("BT3_LAN");
+    char address[128];
+    s32 lan = Port_LanChoice(address, sizeof(address));
     s32 state;
 
     sTb->queue = queue;
@@ -1016,24 +1018,24 @@ static void Tb_WiiCustomSearchStart(void) {
                      queue >= 2 ? queue - 2 : 0, 4);
     Port_NetOptions(Port_RollCan() ? 8 : 0, -2);
     Port_NetNameSet(Port_NetNameGet());
-    if (lan != NULL && strcmp(lan, "online") == 0) {
+    if (lan == 3) {
         state = Port_LobbyStartQuick(queue);
         sTb->host = 2;
     } else {
         /* Direct LAN play is the default for this Wii page. The first local copy hosts; a second copy
            whose bind finds that port occupied joins it over loopback. On separate PCs, give the host IP. */
-        if (lan == NULL || lan[0] == 0 || strcmp(lan, "auto") == 0) {
+        if (lan == 0) {
             state = Port_LobbyStartLan(1, "", 25443, queue);
             sTb->host = 1;
             if (state < 0) {
                 state = Port_LobbyStartLan(0, "127.0.0.1", 25443, queue);
                 sTb->host = 0;
             }
-        } else if (strcmp(lan, "host") == 0) {
+        } else if (lan == 1) {
             state = Port_LobbyStartLan(1, "", 25443, queue);
             sTb->host = 1;
-        } else if (strncmp(lan, "join:", 5) == 0 && lan[5] != 0) {
-            state = Port_LobbyStartLan(0, lan + 5, 25443, queue);
+        } else if (lan == 2) {
+            state = Port_LobbyStartLan(0, address, 25443, queue);
             sTb->host = 0;
         } else {
             Tb_Note("BT3_LAN MUST BE auto, host, join:<HOST IP>, OR online");

@@ -2207,6 +2207,11 @@ s32 TeamSel_Run(s32 section) {
     s32 bgm;
     s32 timeLimit;
     s32 cpuLevel;
+#ifdef PORT
+    s32 botPicked = 0, botWait = 0;
+    extern int Port_NetBotSide(void);
+    extern int Port_NetBotLevel(void);
+#endif
 
     TeamSel_Init(section);
     ColorFade_StartIn(0, 0, 0, 0x14);
@@ -2250,6 +2255,39 @@ s32 TeamSel_Run(s32 section) {
             }
             continue;
         }
+#ifdef PORT
+        if (Port_NetBotSide() == 1 && gTeamSel->players == TEAMSEL_PLAYERS_TWO &&
+            !(gTeamSel->flags & TEAMSEL_STAGE) && gTeamSel->side[1]->state != TEAMSEL_ST_DONE) {
+            if (!botPicked && gTeamSel->side[1]->state == TEAMSEL_ST_GRID) {
+                s32 start = Rand_Range(gTeamSel->masterCount[1]);
+                s32 k;
+                for (k = 0; k < gTeamSel->masterCount[1]; k++) {
+                    s32 cell = (start + k) % gTeamSel->masterCount[1];
+                    s32 chara = gTeamSel->cells[1][cell].id;
+                    if (chara >= 0 && chara < TS_RANDOM && gTeamSel->cells[1][cell].formCount == 0 &&
+                        TeamSel_FitsDp(1, chara)) {
+                        TsMember *member = &gTeamSel->side[1]->member[gTeamSel->side[1]->cur];
+                        TeamSel_ClipGoto(4, 1, TEAMSEL_CLIP_CHIP, "fl_off_start");
+                        member->col = cell % TS_COLS;
+                        member->row = cell / TS_COLS;
+                        TeamSel_SetChips(1);
+                        gTeamSel->side[1]->chara = gTeamSel->side[1]->chip[0][member->col];
+                        TeamSel_RequestFace(1);
+                        TeamSel_ClipGoto(4, 1, TEAMSEL_CLIP_CHIP, "fl_on_start");
+                        botPicked = 1;
+                        break;
+                    }
+                }
+            }
+            if (botPicked && ++botWait >= 20) {
+                if (gTeamSel->side[1]->state == TEAMSEL_ST_TEAM && gTeamSel->side[1]->cur != TS_CUR_MENU)
+                    gPad[1].gameRepeat |= 2;
+                else
+                    gPad[1].gamePressed |= 0x200;
+                botWait = 0;
+            }
+        }
+#endif
         TeamSel_Input(&result);
     }
 
@@ -2306,7 +2344,11 @@ s32 TeamSel_Run(s32 section) {
             break;
         case TEAMSEL_PLAYERS_TWO:
             BattleSetup_SetSide(0, 0, 0, gTeamSel->side[0]->memberCount, 1, 1, 0, NULL);
+#ifdef PORT
+            BattleSetup_SetSide(1, Port_NetBotSide() == 1 ? 2 : 0, 1, gTeamSel->side[1]->memberCount, 1, 1, 0, NULL);
+#else
             BattleSetup_SetSide(1, 0, 1, gTeamSel->side[1]->memberCount, 1, 1, 0, NULL);
+#endif
             break;
         case TEAMSEL_PLAYERS_CPU_CPU:
             BattleSetup_SetSide(0, 2, 0, gTeamSel->side[0]->memberCount, handicap[0], 1, 0, NULL);
@@ -2316,7 +2358,13 @@ s32 TeamSel_Run(s32 section) {
         for (i = 0; i < TEAMSEL_SIDES; i++) {
             for (j = 0; j < gTeamSel->side[i]->memberCount; j++) {
                 BattleSetup_SetMember(i, j, gTeamSel->side[i]->member[j].chara, gTeamSel->side[i]->member[j].color,
-                                      0, cpuLevel, 100.0f, gTeamSel->side[i]->member[j].items.id);
+                                      0,
+#ifdef PORT
+                                      i == 1 && Port_NetBotSide() == 1 ? Port_NetBotLevel() : cpuLevel,
+#else
+                                      cpuLevel,
+#endif
+                                      100.0f, gTeamSel->side[i]->member[j].items.id);
             }
         }
         BattleSetup_Finish();

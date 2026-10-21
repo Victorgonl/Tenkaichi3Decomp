@@ -363,6 +363,32 @@ s32 PauseMenu_Update(s32 pad, s32 which) {
 
     gPauseMenuWhich = which;
     menu = PauseMenu_GetMenu(which);
+#ifdef PORT
+    {
+        extern int Port_NetBotSide(void);
+        extern s32 BattleResult_GetWinnerSide(void);
+        /* In a net match the winning pad owns this menu. Let a winning CPU opponent use the
+           ordinary "Return to Character Select" entry (id 0xD) and its Yes confirmation. */
+        if (which == 1 && pad == 1 && Port_NetBotSide() == 1 && BattleResult_GetWinnerSide() == 1 &&
+            menu == &gPauseMenuResultVersus) {
+            s32 i;
+            for (i = 0; i < menu->count; i++) {
+                if (menu->items[i].id == 0xD && !menu->items[i].disabled) {
+                    BtlMenuItem *choice = &menu->items[i];
+                    if (menu->open < 0 && menu->state == BTL_MENU_STATE_ACTIVE) {
+                        menu->cursor = i;
+                        gPad[pad].gamePressed |= PADG_CROSS;
+                    } else if (menu->open == i && choice->sub != NULL && !choice->selected &&
+                               choice->sub->state == BTL_MENU_STATE_ACTIVE) {
+                        choice->sub->cursor = 1; /* Yes; the default cursor is No. */
+                        gPad[pad].gamePressed |= PADG_CROSS;
+                    }
+                    break;
+                }
+            }
+        }
+    }
+#endif
     BtlMenu_SetScript(BtlObj_Get(BattleSide_GetObjId(pad))->skillText);
     set = BattleResult_Set;
     if (BtlMenu_Update(which, NULL, menu, pad)) {
