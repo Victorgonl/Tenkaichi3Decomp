@@ -67,6 +67,10 @@
       "original": "Normal Battle",
       "text": "Normal Battle"
     },
+    "dragon-net/custom/title": {
+      "original": "Custom Battle",
+      "text": "Custom Battle"
+    },
     "dragon-net/custom/one-v-one": {
       "original": "1 VS 1 Battle",
       "text": "1 VS 1 Battle"

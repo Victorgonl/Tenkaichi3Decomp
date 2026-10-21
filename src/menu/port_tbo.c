@@ -359,6 +359,7 @@ typedef struct TboScreen {
     char wiiDialogText[256];
     s32 wiiBattleCur;
     s32 wiiCustomCur;
+    s32 wiiNormalBattle; /* format page opened from Normal Battle, rather than Custom Battle */
     s32 wiiBattleT;     /* battle-page entrance, after its fade in */
     s32 wiiNextMode;    /* pending Wii page switch, after fade out */
     s32 wiiSubCur;
@@ -431,20 +432,21 @@ static const char *const sTbWiiBattleHelpDefault[6] = {
     "View Battle History."
 };
 static char *sTbWiiBattleHelp[6];
+static void Tb_SetWiiTitles(void);
 static char *sTbWiiFriendsName[3] = {"Friend List", "Add Friend", "My Friend Code"};
 static char *sTbWiiSettingsName[2] = {"Create Player Name", "Initialize Wi-Fi Data"};
 static char *sTbWiiRankingName[2] = {"My Area", "Top 10"};
 
 /* Keep the selected catalog's words in game memory for drawing, help text,
    and the screen reader. Art-backed labels use the font only when edited. */
-enum { TB_WII_TEXT_COUNT = 34, TB_WII_TEXT_SIZE = 256 };
+enum { TB_WII_TEXT_COUNT = 35, TB_WII_TEXT_SIZE = 256 };
 static char sTbWiiText[TB_WII_TEXT_COUNT][TB_WII_TEXT_SIZE];
 static u8 sTbWiiTextEdited[TB_WII_TEXT_COUNT];
 #define TB_WII_TX_HOME_TITLE 0
 #define TB_WII_TX_HOME_ROW 1
 #define TB_WII_TX_BATTLE_TITLE 4
 #define TB_WII_TX_BATTLE_ROW 5
-#define TB_WII_TX_CUSTOM_TITLE 11
+#define TB_WII_TX_NORMAL_TITLE 11
 #define TB_WII_TX_CUSTOM_ROW 12
 #define TB_WII_TX_FRIENDS_TITLE 17
 #define TB_WII_TX_FRIENDS_ROW 18
@@ -453,7 +455,8 @@ static u8 sTbWiiTextEdited[TB_WII_TEXT_COUNT];
 #define TB_WII_TX_RANKING_TITLE 24
 #define TB_WII_TX_RANKING_ROW 25
 #define TB_WII_TX_NAME_TITLE 27
-#define TB_WII_TX_BATTLE_HELP 28
+#define TB_WII_TX_CUSTOM_TITLE 28
+#define TB_WII_TX_BATTLE_HELP 29
 static void Tb_LoadWiiText(void) {
     s32 i;
     for (i = 0; i < TB_WII_TX_BATTLE_HELP; i++)
@@ -1001,9 +1004,9 @@ static void Tb_QuickUpdate(s32 live) {
     }
 }
 
-/* The Wii Custom Battle rows use the same five queues as the PC quick-match service. */
+/* Both Wii format pages share the PC quick-match queues, in their original order. */
 static void Tb_WiiCustomSearchStart(void) {
-    s32 queue = sTb->wiiCustomCur;
+    s32 queue = sTb->wiiCustomCur + (sTb->wiiNormalBattle ? 2 : 0);
     const char *lan = getenv("BT3_LAN");
     s32 state;
 
@@ -1104,7 +1107,7 @@ static void Tb_WiiUpdate(s32 live) {
              : sTb->mode == TB_WII_CUSTOM ? &sTb->wiiCustomCur : &sTb->wiiSubCur;
     s32 count = sTb->mode == TB_WII_HOME || sTb->mode == TB_WII_FRIENDS ? 3
               : sTb->mode == TB_WII_BATTLE ? 6
-              : sTb->mode == TB_WII_CUSTOM ? TB_WII_CUSTOM_COUNT : 2;
+              : sTb->mode == TB_WII_CUSTOM ? (sTb->wiiNormalBattle ? 3 : 2) : 2;
 
     if (sTb->mode == TB_WII_VS) {
         if (sTb->wiiNextMode) return;
@@ -1189,7 +1192,9 @@ static void Tb_WiiUpdate(s32 live) {
             }
         } else {
             Snd_PlaySe(1, 1);
-            if (sTb->mode == TB_WII_BATTLE && *cur == 1) {
+            if (sTb->mode == TB_WII_BATTLE && (*cur == 0 || *cur == 1)) {
+                sTb->wiiNormalBattle = *cur == 1;
+                Tb_SetWiiTitles();
                 sTb->wiiCustomCur = 0;
                 sTb->wiiNextMode = TB_WII_CUSTOM;
                 ColorFade_StartOut(0, 0, 0, 0x14);
@@ -2088,7 +2093,7 @@ static void Tb_DrawWiiBattle(void) {
         }
     }
 
-    for (i = 0; i < (custom ? TB_WII_CUSTOM_COUNT : 6); i++) {
+    for (i = 0; i < (custom ? (sTb->wiiNormalBattle ? 3 : 2) : 6); i++) {
         /* In the Wii menu each lower row begins a little farther right. */
         f32 x = 170.0f + (f32)i * TB_WII_BATTLE_ROW_STEP_X
                 + (1.0f - Tb_In(i * 2)) * 512.0f;
@@ -2096,16 +2101,17 @@ static void Tb_DrawWiiBattle(void) {
         s32 focusAlpha = Tb_WiiFocusAlpha(i, custom ? sTb->wiiCustomCur : sTb->wiiBattleCur);
         f32 v0 = (f32)i * 32.0f / 256.0f;
         f32 v1 = (f32)(i + 1) * 32.0f / 256.0f;
-        u32 tint = (custom || i == 1) ? PS_PLAIN : disabled;
+        u32 tint = (custom || i <= 1) ? PS_PLAIN : disabled;
         Ps_SpriteScreen(TBO_WII_BATTLE_BAR_BLUE, x, y, x + 512.0f, y + 64.0f,
                         0.0f, 0.0f, 1.0f, 1.0f, tint, 0x80);
         if (focusAlpha > 0)
             Ps_SpriteScreen(TBO_WII_BATTLE_BAR_GOLD, x, y, x + 512.0f, y + 64.0f,
                             0.0f, 0.0f, 1.0f, 1.0f, tint, focusAlpha);
         if (custom) {
-            /* The custom names have no Wii lettering sheet. Use the same
+            /* The format names have no Wii lettering sheet. Use the same
                menu-label rasterizer with the first Menu font on Original. */
-            Tb_WiiLabelText(sTbWiiCustomName[i], x + 46.0f, y + 4.0f, focusAlpha, tint);
+            Tb_WiiLabelText(sTbWiiCustomName[i + (sTb->wiiNormalBattle ? 2 : 0)],
+                            x + 46.0f, y + 4.0f, focusAlpha, tint);
         } else {
             if (PortTbo_WiiUseFontForArtwork(sTbWiiTextEdited[TB_WII_TX_BATTLE_ROW + i]))
                 Tb_WiiLabelText(sTbWiiBattleName[i], x + 49.0f, y + 5.0f, focusAlpha, tint);
@@ -2124,14 +2130,16 @@ static void Tb_DrawWiiBattle(void) {
                         radarY - 32.0f * radarScale,
                         radarX + 32.0f * radarScale, radarY + 32.0f * radarScale,
                         0.0f, 0.0f, 1.0f, 1.0f,
-                        custom || sTb->wiiBattleCur == 1 ? PS_PLAIN : disabled,
+                        custom || sTb->wiiBattleCur <= 1 ? PS_PLAIN : disabled,
                         0x80);
     }
     IconWin_PortHeadingMotion(sTb->wiiBattleT, &iconDx, &iconDy, &iconAlpha,
                               &iconScaleX, &iconScaleY, &titleDx, &titleDy,
                               &titleAlpha, &titleScaleX, &titleScaleY);
-    if (custom || PortTbo_WiiUseFontForArtwork(sTbWiiTextEdited[TB_WII_TX_BATTLE_TITLE]))
-        Tb_WiiTitleText(custom ? TB_WII_TX_CUSTOM_TITLE : TB_WII_TX_BATTLE_TITLE,
+    if ((custom && sTb->wiiNormalBattle) ||
+        PortTbo_WiiUseFontForArtwork(sTbWiiTextEdited[custom ? TB_WII_TX_CUSTOM_TITLE : TB_WII_TX_BATTLE_TITLE]))
+        Tb_WiiTitleText(custom ? (sTb->wiiNormalBattle ? TB_WII_TX_NORMAL_TITLE : TB_WII_TX_CUSTOM_TITLE)
+                               : TB_WII_TX_BATTLE_TITLE,
                         62.0f + titleDx, 17.0f + titleDy, titleScaleX, titleScaleY, titleAlpha);
     else
         Ps_SpriteScreen(custom ? TBO_WII_CUSTOM_TITLE : TBO_WII_BATTLE_TITLE,
@@ -2209,8 +2217,14 @@ static void Tb_DrawWiiVs(void) {
     IconWin_PortHeadingMotion(sTb->wiiBattleT, &iconDx, &iconDy, &iconAlpha,
                               &iconScaleX, &iconScaleY, &titleDx, &titleDy,
                               &titleAlpha, &titleScaleX, &titleScaleY);
-    Tb_WiiTitleText(TB_WII_TX_CUSTOM_TITLE, 62.0f + titleDx, 17.0f + titleDy,
-                    titleScaleX, titleScaleY, titleAlpha);
+    if (sTb->wiiNormalBattle || PortTbo_WiiUseFontForArtwork(sTbWiiTextEdited[TB_WII_TX_CUSTOM_TITLE]))
+        Tb_WiiTitleText(sTb->wiiNormalBattle ? TB_WII_TX_NORMAL_TITLE : TB_WII_TX_CUSTOM_TITLE,
+                        62.0f + titleDx, 17.0f + titleDy, titleScaleX, titleScaleY, titleAlpha);
+    else
+        Ps_SpriteScreen(TBO_WII_CUSTOM_TITLE, 62.0f + titleDx, 17.0f + titleDy,
+                        62.0f + titleDx + 512.0f * titleScaleX,
+                        17.0f + titleDy + 64.0f * titleScaleY,
+                        0.0f, 0.0f, 1.0f, 1.0f, PS_PLAIN, titleAlpha);
     Ps_SpriteScreen(TBO_WII_CREST, 45.0f + iconDx - 32.0f * iconScaleX,
                     48.0f + iconDy - 32.0f * iconScaleY,
                     45.0f + iconDx + 32.0f * iconScaleX,
@@ -2222,7 +2236,7 @@ static void Tb_DrawWii(void) {
     s32 i;
     s32 count = sTb->mode == TB_WII_HOME || sTb->mode == TB_WII_FRIENDS ? 3
               : sTb->mode == TB_WII_BATTLE ? 6
-              : sTb->mode == TB_WII_CUSTOM ? TB_WII_CUSTOM_COUNT : 2;
+              : sTb->mode == TB_WII_CUSTOM ? (sTb->wiiNormalBattle ? 3 : 2) : 2;
     s32 cur = sTb->mode == TB_WII_HOME ? sTb->wiiCur
             : sTb->mode == TB_WII_BATTLE ? sTb->wiiBattleCur
             : sTb->mode == TB_WII_CUSTOM ? sTb->wiiCustomCur : sTb->wiiSubCur;
@@ -2345,13 +2359,13 @@ static void Tb_DrawWiiText(void) {
     s32 i;
     s32 count = sTb->mode == TB_WII_HOME || sTb->mode == TB_WII_FRIENDS ? 3
               : sTb->mode == TB_WII_BATTLE ? 6
-              : sTb->mode == TB_WII_CUSTOM ? TB_WII_CUSTOM_COUNT : 2;
+              : sTb->mode == TB_WII_CUSTOM ? (sTb->wiiNormalBattle ? 3 : 2) : 2;
     s32 cur = sTb->mode == TB_WII_HOME ? sTb->wiiCur
             : sTb->mode == TB_WII_BATTLE ? sTb->wiiBattleCur
             : sTb->mode == TB_WII_CUSTOM ? sTb->wiiCustomCur : sTb->wiiSubCur;
     char **names = sTb->mode == TB_WII_HOME ? sTbWiiHomeName
                   : sTb->mode == TB_WII_BATTLE ? sTbWiiBattleName
-                  : sTb->mode == TB_WII_CUSTOM ? sTbWiiCustomName
+                  : sTb->mode == TB_WII_CUSTOM ? sTbWiiCustomName + (sTb->wiiNormalBattle ? 2 : 0)
                   : sTb->mode == TB_WII_FRIENDS ? sTbWiiFriendsName
                   : sTb->mode == TB_WII_SETTINGS ? sTbWiiSettingsName : sTbWiiRankingName;
     f32 y0 = count == 6 ? 87.0f : 114.0f;
@@ -2790,12 +2804,12 @@ static char *sTbTitle[17] = {"Tenkaichi Budokai Online", "Create Room", "Join Ro
 static void Tb_SetWiiTitles(void) {
     sTbTitle[TB_WII_HOME] = sTbWiiText[TB_WII_TX_HOME_TITLE];
     sTbTitle[TB_WII_BATTLE] = sTbWiiText[TB_WII_TX_BATTLE_TITLE];
-    sTbTitle[TB_WII_CUSTOM] = sTbWiiText[TB_WII_TX_CUSTOM_TITLE];
+    sTbTitle[TB_WII_CUSTOM] = sTbWiiText[sTb->wiiNormalBattle ? TB_WII_TX_NORMAL_TITLE : TB_WII_TX_CUSTOM_TITLE];
     sTbTitle[TB_WII_FRIENDS] = sTbWiiText[TB_WII_TX_FRIENDS_TITLE];
     sTbTitle[TB_WII_SETTINGS] = sTbWiiText[TB_WII_TX_SETTINGS_TITLE];
     sTbTitle[TB_WII_RANKING] = sTbWiiText[TB_WII_TX_RANKING_TITLE];
     sTbTitle[TB_WII_NAME] = sTbWiiText[TB_WII_TX_NAME_TITLE];
-    sTbTitle[TB_WII_VS] = sTbWiiText[TB_WII_TX_CUSTOM_TITLE];
+    sTbTitle[TB_WII_VS] = sTbTitle[TB_WII_CUSTOM];
 }
 
 /* ---- the screen reader (port/src/gs/a11y.c; silent unless the player has it on). The game's own screens are read
@@ -2860,7 +2874,7 @@ static void Tb_Speak(void) {
         Ps_Copy(focus, sTbWiiBattleName[sTb->wiiBattleCur], 160);
         break;
     case TB_WII_CUSTOM:
-        Ps_Copy(focus, sTbWiiCustomName[sTb->wiiCustomCur], 160);
+        Ps_Copy(focus, sTbWiiCustomName[sTb->wiiCustomCur + (sTb->wiiNormalBattle ? 2 : 0)], 160);
         break;
     case TB_WII_VS:
         break;

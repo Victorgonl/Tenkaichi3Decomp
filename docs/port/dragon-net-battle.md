@@ -2,15 +2,16 @@
 
 With the Wii assets extracted, the PS2 main-menu plate **Dragon Net Battle** opens the Wii mode's top-level choices
 in the port's screen mode. Without those assets, it opens the PC online window over the main menu as before.
-Nintendo WFC Battle opens its Wii battle menu. Normal Battle opens a matching page with **1 VS 1 Battle**,
-**Team Battle**, **10 DP Team Battle**, **15 DP Team Battle**, and **20 DP Team Battle**. Each entry opens
+Nintendo WFC Battle opens its Wii battle menu. Custom Battle opens a page with **1 VS 1 Battle** and
+**Team Battle**. Normal Battle opens a page with **10 DP Team Battle**, **15 DP Team Battle**, and
+**20 DP Team Battle**. Each entry opens
 the Wii opponent-search screen with its matching battle rules.
 When another player is found, the VS screen shows both player names and "Opponent found!" for about three seconds
 before the existing online session launcher starts the battle. Triangle cancels
-the search and returns to Normal Battle. Friend Battle keeps its original label and disabled appearance in
-the main battle menu; it does not open a screen. The Normal Battle option and all five submenu entries
-use their normal, enabled colors. The submenu and opponent-search screens use the Normal Battle header.
-Custom Battle, Ranking Battle, View Ranking, and Battle Record remain unavailable.
+the search and returns to the battle page it came from. Friend Battle keeps its original label and disabled appearance in
+the main battle menu; it does not open a screen. Custom Battle, Normal Battle, and their submenu entries
+use their normal, enabled colors. Each submenu and opponent-search screen uses its selected battle type as the header.
+Ranking Battle, View Ranking, and Battle Record remain unavailable.
 By default, these entries use the existing direct lobby and battle session, with no matchmaking Worker, build
 key, or internet connection. The first copy on one computer hosts on UDP port 25443; a second copy on that
 computer joins over loopback. For two computers on a LAN, start the host with `BT3_LAN=host` and the other with
@@ -96,7 +97,7 @@ language uses its Wii text when the row is unedited.
 The ported screens use these IDs: home, friends, settings, and ranking dialogue
 use `wii-dragon-net/dialog/<line>`; the six Nintendo WFC Battle descriptions use
 `wii-dragon-net/menu-text/47` through `/52`; and the opponent-search screen uses
-`wii-dragon-net/menu-text/53` and `/54`. The Custom Battle format prompt and
+`wii-dragon-net/menu-text/53` and `/54`. The battle-format prompt and
 player-name validation notices were written for the port; they are not Wii disc text.
 The port's selected menu language chooses the subtitle bank and matching Wii artwork;
 other menu languages fall back to English. Older extractions without localized artwork use the original
@@ -121,18 +122,20 @@ animation after the fade. Pan does not appear or speak on this page. The battle 
 show neutral descriptions without character dialogue. The other lower Wii menu pages currently use the port's
 drawn UI over the decoded landscape.
 Focusing Ranking Battle or View Ranking shows the Wii Fighting Point panel on the left with `0000` as a placeholder.
-The Custom Battle page uses the extracted Wii title and the battle page's clock, Giru, bars, cursor, and fade.
-The Nintendo WFC Battle, Custom Battle, and opponent-search pages draw the
+The Custom Battle page uses the extracted Wii title; Normal Battle draws its title with the menu heading style.
+Both format pages use the battle page's clock, Giru, bars, cursor, and fade.
+The Nintendo WFC Battle, both format pages, and opponent-search page draw the
 extracted nebula and both halves of the shimmering star field inside the clock's
 circular window. Only the small central stars are shown; the large glowing rim
 stars are hidden.
-Its first option starts at the same vertical position as the first option on the preceding battle page.
+Each format page's first option starts at the same vertical position as the first option on the preceding battle page.
 The opponent-search screen uses section 1 resource 3's blue and red VS panel halves, panel highlights,
 1P/2P badges, VS emblem, and battle-record labels and digits. Both panels show Battles, Wins, and Losses
 with `0` placeholders. Names sit above the records in the game's native message-window font.
-resource 4's Custom Battle title, and the same clock background. Giru enters fully on screen at the lower left after the fade.
+The opponent-search screen keeps the selected format's title and the same clock background.
+Giru enters fully on screen at the lower left after the fade.
 The saved player name is centered in the blue panel; the opponent's name appears in the red panel when found.
-On both battle pages, each lower option starts 10.5 screen units farther right, following the original Wii menu's
+On the battle and format pages, each lower option starts 10.5 screen units farther right, following the original Wii menu's
 stair-step layout; the radar cursor follows the selected row's horizontal position and shares its text pulse.
 The five option labels have no matching Wii lettering sheet. They use the
 Evolution Z style menu-label renderer with the selected Menu font; when it is
