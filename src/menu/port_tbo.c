@@ -2139,8 +2139,30 @@ static void Tb_DrawWiiBattle(void) {
                     0.0f, 0.0f, 1.0f, 1.0f, PS_PLAIN, iconAlpha);
 }
 
-/* The Wii's empty opponent search screen. The two halves of each plate are
-   mirrored from resource 3's left cap, with the VS mark drawn between them. */
+/* The Wii record plate's badges, three labels, and zeroed record values. */
+static void Tb_WiiVsRecord(f32 top, s32 second) {
+    static const f32 column[3] = {103.0f, 248.0f, 403.0f};
+    s32 i;
+
+    Ps_SpriteScreen(TBO_WII_VS_PLAYERS, 18.0f, top + 32.0f, 82.0f, top + 64.0f,
+                    0.0f, second ? 0.5f : 0.0f, 1.0f, second ? 1.0f : 0.5f,
+                    PS_PLAIN, 0x80);
+    for (i = 0; i < 3; i++) {
+        s32 wins = i == 1;
+        f32 x = column[i];
+        Ps_SpriteScreen(wins ? TBO_WII_VS_WINS_DIGITS : TBO_WII_VS_DIGITS,
+                        x, top + 70.0f, x + 18.0f, top + 96.0f,
+                        0.0f, 0.0f, wins ? 20.0f / 128.0f : 26.0f / 128.0f, 0.25f,
+                        wins ? Ps_Rgba(0xFF, 0xCB, 0xA8, 0x80)
+                             : i == 0 ? Ps_Rgba(0xA0, 0xF0, 0xB0, 0x80) : PS_PLAIN, 0x80);
+        Ps_SpriteScreen(TBO_WII_VS_RECORD_LABELS,
+                        x + 18.0f, top + 70.0f, x + 98.0f, top + 102.0f,
+                        0.0f, (f32)i * 0.25f, 80.0f / 128.0f, (f32)(i + 1) * 0.25f,
+                        PS_PLAIN, 0x80);
+    }
+}
+
+/* The two halves of each Wii plate are mirrored from resource 3's left cap. */
 static void Tb_DrawWiiVs(void) {
     f32 giruIn = (f32)sTb->wiiBattleT / 29.0f;
     f32 giruX, giruY;
@@ -2168,7 +2190,13 @@ static void Tb_DrawWiiVs(void) {
                     0.0f, 0.5f, 1.0f, 1.0f, PS_PLAIN, 0x80);
     Ps_SpriteScreen(TBO_WII_VS_PANELS, 256.0f, 203.0f, 512.0f, 331.0f,
                     1.0f, 0.5f, 0.0f, 1.0f, PS_PLAIN, 0x80);
-    Ps_SpriteScreen(TBO_WII_VS_MARK, 186.0f, 173.0f, 314.0f, 237.0f,
+    Ps_SpriteScreen(TBO_WII_VS_LINES, 0.0f, 63.0f, 512.0f, 191.0f,
+                    0.0f, 0.0f, 1.0f, 1.0f, PS_PLAIN, 0x80);
+    Ps_SpriteScreen(TBO_WII_VS_LINES, 0.0f, 203.0f, 512.0f, 331.0f,
+                    0.0f, 0.0f, 1.0f, 1.0f, PS_PLAIN, 0x80);
+    Tb_WiiVsRecord(63.0f, 0);
+    Tb_WiiVsRecord(203.0f, 1);
+    Ps_SpriteScreen(TBO_WII_VS_MARK, 186.0f, 165.0f, 314.0f, 229.0f,
                     0.0f, 0.0f, 1.0f, 1.0f, PS_PLAIN, 0x80);
 
     IconWin_PortHeadingMotion(sTb->wiiBattleT, &iconDx, &iconDy, &iconAlpha,
@@ -3144,9 +3172,9 @@ static void Tb_DrawText(void) {
         break;
     case TB_WII_VS:
         if (Port_WiiArtAvailable()) {
-            MsgWin_PortDrawNativeName(Port_NetNameGet(), 42, 83, 470, 171);
+            MsgWin_PortDrawNativeName(Port_NetNameGet(), 42, 70, 470, 111);
             if (sTb->found && Port_LobbyPeerName()[0] != 0)
-                MsgWin_PortDrawNativeName(Port_LobbyPeerName(), 42, 223, 470, 311);
+                MsgWin_PortDrawNativeName(Port_LobbyPeerName(), 42, 210, 470, 251);
         }
         break;
     case TB_HUB:

@@ -59,6 +59,13 @@ WII_BATTLE = {
     "wii_battle_point_label": (3, 41),
     "wii_battle_point_digits": (3, 5),
     "wii_custom_title": (4, 2),
+    "wii_vs_panels": (3, 20),
+    "wii_vs_mark": (3, 40),
+    "wii_vs_lines": (3, 21),
+    "wii_vs_players": (3, 22),
+    "wii_vs_digits": (3, 38),
+    "wii_vs_wins_digits": (3, 24),
+    "wii_vs_record_labels": (3, 42),
 }
 WII_BATTLE.update({f"wii_battle_bg_{i}": (1, i) for i in range(8)})
 

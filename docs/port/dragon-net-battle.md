@@ -108,9 +108,11 @@ drawn UI over the decoded landscape.
 Focusing Ranking Battle or View Ranking shows the Wii Fighting Point panel on the left with `0000` as a placeholder.
 The Custom Battle page uses the extracted Wii title and the battle page's clock, Giru, bars, cursor, and fade.
 Its first option starts at the same vertical position as the first option on the preceding battle page.
-The opponent-search screen uses section 1 resource 3's blue and red VS panel halves and VS emblem,
+The opponent-search screen uses section 1 resource 3's blue and red VS panel halves, panel highlights,
+1P/2P badges, VS emblem, and battle-record labels and digits. Both panels show Battles, Wins, and Losses
+with `0` placeholders. Names sit above the records in the game's native message-window font.
 resource 4's Custom Battle title, and the same clock background. Giru enters fully on screen at the lower left after the fade.
-The saved player name is centered in the blue panel using the game's native message-window font.
+The saved player name is centered in the blue panel; the opponent's name appears in the red panel when found.
 On both battle pages, each lower option starts 10.5 screen units farther right, following the original Wii menu's
 stair-step layout; the radar cursor follows the selected row's horizontal position and shares its text pulse.
 The five option labels use the configured Menu font because this extraction has no matching Wii label sheet.
