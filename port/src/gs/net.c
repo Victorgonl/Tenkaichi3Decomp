@@ -857,6 +857,7 @@ void Port_TestSlow(int what, int amount) {
 }
 
 static int sSession; /* a session started from Dragon Net Battle (below), not a plain connected run */
+static int sLanSession; /* this session came from the direct LAN battle lobby */
 static int sArrived; /* its start-up has reached the character select */
 static uint32_t sStartedMs; /* when the two were connected (for the log) */
 
@@ -1198,6 +1199,7 @@ int Port_NetActive(void) {
         sMode = 0;
         if (host != NULL || join != NULL) {
             sSession = getenv("BT3_NET_SESSION") != NULL;
+            sLanSession = sSession && getenv("BT3_NET_LAN_SESSION") != NULL;
             net_start(host != NULL ? 1 : 2, host, join);
         }
     }
@@ -1359,7 +1361,7 @@ static void session_banner(void) {
     char text[256], name[NAME_LEN];
     size_t i, k, n;
 
-    if (!sSession) {
+    if (!sSession || sLanSession) {
         return;
     }
     for (i = k = 0; other[i] != '\0' && k + 1 < sizeof(name); i++) { /* (the other side's text: printable only) */
@@ -1464,7 +1466,8 @@ static void meet(unsigned tick) {
         session_hold();
     } while (sTheirArrival == 0);
     session_banner();
-    Port_UiBanner(NULL, 2500); /* (the line stays a little over the character select, without the dimming) */
+    if (!sLanSession)
+        Port_UiBanner(NULL, 2500); /* (the line stays a little over the character select, without the dimming) */
     fprintf(stderr, "bt3: net: both at the character select (blank %u), %u ms after connecting\n", tick, (unsigned)(now_ms() - sStartedMs));
     if (sTheirArrival != tick) {
         fprintf(stderr, "bt3: net: the other copy reached the character select at blank %u\n", (unsigned)sTheirArrival);
@@ -1612,6 +1615,7 @@ static void relaunch(int role, const char *join, int port) {
     SETENV("BT3_NET_HOST", NULL);
     SETENV("BT3_NET_JOIN", NULL);
     SETENV("BT3_NET_SESSION", NULL);
+    SETENV("BT3_NET_LAN_SESSION", NULL);
     SETENV("BT3_SOUND_TICKS", NULL);
     if (role != 0) {
         if (role == 1) {
@@ -1622,6 +1626,7 @@ static void relaunch(int role, const char *join, int port) {
             SETENV("BT3_NET_JOIN", value);
         }
         SETENV("BT3_NET_SESSION", "1");
+        if (sLanSession) SETENV("BT3_NET_LAN_SESSION", "1");
         SETENV("BT3_NET_NAME", sMyName);
         {   /* a match found with a room code: the lobby's local port, and for the host where to go on knocking */
             char text[64] = "";
@@ -1794,6 +1799,7 @@ void Port_NetSessionEnd(void) {
     }
     sMode = 0;
     sSession = 0;
+    sLanSession = 0;
     PortChat_Reset();
     put_env("BT3_SAVES", sSavesWasSet ? sSavesBefore : NULL);
 }
@@ -2234,6 +2240,7 @@ void Port_LobbyAuto(void) {
 
 /* The other player is there: start the session. */
 void Port_LobbyLaunch(void) {
+    sLanSession = sLanMode;
     if (sCodeMode && Port_SessionCan()) {
         sHandSock = sSock; /* the session goes on with this socket (see sHandSock) */
     } else {
