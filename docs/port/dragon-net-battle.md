@@ -33,8 +33,8 @@ The Wii resource 13 frame, title, underline cursor and typed characters supply t
 The name field mirrors the Wii frame's half-width art and shows Giru behind it. Typed characters are vertically
 centered inside the field.
 Pan remains visible in User Settings and leaves as the keyboard opens. Giru stays beside her on the settings page,
-then follows the 30 position samples of the Wii `fl_1` movie into the name field and turns toward it during the
-keyboard entrance. The settings page keeps Giru at his home position and original size. The keyboard backing,
+then moves horizontally left and climbs to the upper-left of the name field, turning toward it during the
+keyboard entrance. He uses his native 256×128 texture size on both pages. The keyboard backing,
 glyphs, captions, and text field share the Wii nickname movie's 16-frame entrance.
 Returning from User Settings preserves the home positions without replaying their entrance. Both characters keep
 their continuous idle movement.
@@ -117,7 +117,7 @@ selected option. The other lower Wii menu pages use their original spoken descri
 variants come from the same Wii art pack and change on their recorded lip events. The existing game message window
 displays the extracted line. A screenshot is useful for comparison but is not loaded by the port. The Nintendo WFC
 Battle page uses section 1's clock background, six blue and gold bars, label sheets, title, and Giru pose. It opens
-after a fade; Giru enters from the left at the name editor's size, and the title and crest play their header
+after a fade; Giru enters from the left at his native 256×128 Wii texture size, and the title and crest play their header
 animation after the fade. Pan does not appear or speak on this page. The battle entries sit below the header and
 show neutral descriptions without character dialogue. The other lower Wii menu pages currently use the port's
 drawn UI over the decoded landscape.
@@ -134,6 +134,7 @@ The opponent-search screen uses section 1 resource 3's blue and red VS panel hal
 with `0` placeholders. Names sit above the records in the game's native message-window font.
 The opponent-search screen keeps the selected format's title and the same clock background.
 Giru enters fully on screen at the lower left after the fade.
+The landscape cloud sheet begins at the Wii movie's (0, −10) position and moves left at a constant speed in a horizontal loop.
 The saved player name is centered in the blue panel; the opponent's name appears in the red panel when found.
 On the battle and format pages, each lower option starts 10.5 screen units farther right, following the original Wii menu's
 stair-step layout; the radar cursor follows the selected row's horizontal position and shares its text pulse.

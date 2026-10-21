@@ -1775,12 +1775,11 @@ static void Tb_Backdrop(void) {
             Ps_SpriteScreen(TBO_WII_BG_0 + i, x, y, x + 128.0f, y + 224.0f,
                             0.0f, 0.0f, 1.0f, 1.0f, PS_PLAIN, 0x80);
         }
-        /* The sky and river belong to the landscape, so keep them running
-           behind every Wii submenu. Adjacent cloud sheets wrap seamlessly
-           when the phase returns to zero. */
+        /* Start at the Wii movie's (0, -10) placement. Adjacent copies make
+           the cloud sheet travel left at constant speed and wrap in a loop. */
         for (i = -1; i <= 1; i++) {
-            f32 x = 50.0f + (f32)i * 512.0f - cloudPhase;
-            Ps_SpriteScreen(TBO_WII_CLOUDS, x, 35.0f, x + 512.0f, 163.0f,
+            f32 x = (f32)i * 512.0f - cloudPhase;
+            Ps_SpriteScreen(TBO_WII_CLOUDS, x, -10.0f, x + 512.0f, 118.0f,
                             0.0f, 0.0f, 1.0f, 1.0f, PS_PLAIN, 0x80);
         }
         for (i = 0; i < 2; i++) {
@@ -1813,20 +1812,8 @@ static f32 Tb_WiiIdleBob(s32 quarter, f32 height) {
     return -cosf((f32)phase * (6.283185307f / 400.0f)) * height;
 }
 
-#define TB_WII_SUB_GIRU_W 200.0f
-#define TB_WII_SUB_GIRU_H 100.0f
-
-/* DragonNe section 0, Giru sprite fl_1 (source frames 30..59). */
-static const f32 sTbWiiGiruNameX[30] = {
-    184.05f, 168.70f, 153.25f, 137.70f, 122.45f, 107.35f, 92.10f, 76.65f, 60.85f, 44.85f,
-    29.55f, 15.10f, 1.40f, -12.05f, -26.25f, -41.70f, -57.85f, -74.05f, -89.85f, -104.45f,
-    -117.35f, -128.55f, -138.35f, -147.05f, -155.05f, -162.65f, -170.20f, -177.75f, -185.95f, -185.50f
-};
-static const f32 sTbWiiGiruNameY[30] = {
-    71.85f, 66.35f, 61.10f, 56.15f, 51.55f, 47.35f, 43.70f, 40.75f, 39.40f, 41.45f,
-    46.80f, 55.30f, 64.80f, 73.65f, 81.05f, 85.95f, 88.25f, 88.05f, 84.45f, 77.25f,
-    67.20f, 55.10f, 41.85f, 28.00f, 13.65f, -0.95f, -15.75f, -30.10f, -43.95f, -43.25f
-};
+#define TB_WII_NATIVE_GIRU_W 256.0f
+#define TB_WII_NATIVE_GIRU_H 128.0f
 
 static void Tb_DrawWiiHomeArt(void) {
     s32 i;
@@ -1850,9 +1837,9 @@ static void Tb_DrawWiiHomeArt(void) {
     IconWin_PortHeadingMotion(sTb->frames, &iconDx, &iconDy, &iconAlpha,
                               &iconScaleX, &iconScaleY, &titleDx, &titleDy,
                               &titleAlpha, &titleScaleX, &titleScaleY);
-    /* Texture 10 is not centered in its 256-pixel canvas. Keep its visible
-       bounds in the same place when reversing its UVs. */
-    giruX -= 63.28f;
+    /* The reversed 256x128 Wii sprite has 85 pixels of transparent canvas
+       before its visible art. Set its resting bounds to x=346..512. */
+    giruX -= 117.0f;
 
     /* The entrance plays at 3/4 speed. The idle bob has smooth turns at the
        same cadence, with independent Pan and Giru phases. */
@@ -1888,7 +1875,8 @@ static void Tb_DrawWiiHomeArt(void) {
                             0.0f, 0.0f, 1.0f, 1.0f, PS_PLAIN, 0x80);
     }
     Ps_SpriteScreen(TBO_WII_GIRU, 378.0f + giruX, 233.0f + giruY + giruHover,
-                    578.0f + giruX, 333.0f + giruY + giruHover,
+                    378.0f + giruX + TB_WII_NATIVE_GIRU_W,
+                    233.0f + giruY + giruHover + TB_WII_NATIVE_GIRU_H,
                     1.0f, 0.0f, 0.0f, 1.0f, PS_PLAIN, 0x80);
     {
         s32 giruTalking = sTb->wiiDialogVoiceStarted && sTb->wiiDialogLine == 1 &&
@@ -1896,7 +1884,8 @@ static void Tb_DrawWiiHomeArt(void) {
                           Port_WiiDialogMouth(1, sTb->wiiDialogT, sTb->wiiDialogJapanese);
         s32 eye = giruTalking ? TBO_WII_GIRU_EYE_BRIGHT : TBO_WII_GIRU_EYE_DIM;
         Ps_SpriteScreen(eye, 378.0f + giruX, 233.0f + giruY + giruHover,
-                        578.0f + giruX, 333.0f + giruY + giruHover,
+                        378.0f + giruX + TB_WII_NATIVE_GIRU_W,
+                        233.0f + giruY + giruHover + TB_WII_NATIVE_GIRU_H,
                         1.0f, 0.0f, 0.0f, 1.0f, PS_PLAIN, 0x80);
     }
     for (i = 0; i < 3; i++) {
@@ -2066,17 +2055,17 @@ static void Tb_DrawWiiBattle(void) {
     u32 disabled = Ps_Rgba(0x58, 0x58, 0x58, 0x80);
 
     Ps_SetShift(0.0f);
-    /* This is a separate scene: Giru flies in from off the left edge only
-       after the fade has finished. His size matches the name editor. */
+    /* Giru's section 1 texture is 256x128. Its visible pixels begin five
+       pixels into the canvas, so x=0 shows him fully at the left edge. */
     if (giruIn > 1.0f) giruIn = 1.0f;
     giruIn = giruIn * giruIn * (3.0f - 2.0f * giruIn);
-    giruX = -TB_WII_SUB_GIRU_W + 210.0f * giruIn;
-    giruY = 91.0f + giruHover;
+    giruX = -TB_WII_NATIVE_GIRU_W + TB_WII_NATIVE_GIRU_W * giruIn;
+    giruY = 82.0f + giruHover;
     Ps_SpriteScreen(TBO_WII_BATTLE_GIRU,
-                    giruX, giruY, giruX + TB_WII_SUB_GIRU_W, giruY + TB_WII_SUB_GIRU_H,
+                    giruX, giruY, giruX + TB_WII_NATIVE_GIRU_W, giruY + TB_WII_NATIVE_GIRU_H,
                     0.0f, 0.0f, 1.0f, 1.0f, PS_PLAIN, 0x80);
     Ps_SpriteScreen(TBO_WII_BATTLE_GIRU_EYE_DIM,
-                    giruX, giruY, giruX + TB_WII_SUB_GIRU_W, giruY + TB_WII_SUB_GIRU_H,
+                    giruX, giruY, giruX + TB_WII_NATIVE_GIRU_W, giruY + TB_WII_NATIVE_GIRU_H,
                     0.0f, 0.0f, 1.0f, 1.0f, PS_PLAIN, 0x80);
 
     if (!custom && (sTb->wiiBattleCur == 3 || sTb->wiiBattleCur == 4) && sTb->wiiBattleT >= 30) {
@@ -2190,13 +2179,13 @@ static void Tb_DrawWiiVs(void) {
     Ps_SetShift(0.0f);
     if (giruIn > 1.0f) giruIn = 1.0f;
     giruIn = giruIn * giruIn * (3.0f - 2.0f * giruIn);
-    giruX = -TB_WII_SUB_GIRU_W + 210.0f * giruIn;
-    giruY = 250.0f + Tb_WiiIdleBob(((sTb->frames * 3) + 500) % 2000, 4.5f);
+    giruX = -TB_WII_NATIVE_GIRU_W + TB_WII_NATIVE_GIRU_W * giruIn;
+    giruY = 275.0f + Tb_WiiIdleBob(((sTb->frames * 3) + 500) % 2000, 4.5f);
     Ps_SpriteScreen(TBO_WII_BATTLE_GIRU, giruX, giruY,
-                    giruX + TB_WII_SUB_GIRU_W, giruY + TB_WII_SUB_GIRU_H,
+                    giruX + TB_WII_NATIVE_GIRU_W, giruY + TB_WII_NATIVE_GIRU_H,
                     0.0f, 0.0f, 1.0f, 1.0f, PS_PLAIN, 0x80);
     Ps_SpriteScreen(TBO_WII_BATTLE_GIRU_EYE_DIM, giruX, giruY,
-                    giruX + TB_WII_SUB_GIRU_W, giruY + TB_WII_SUB_GIRU_H,
+                    giruX + TB_WII_NATIVE_GIRU_W, giruY + TB_WII_NATIVE_GIRU_H,
                     0.0f, 0.0f, 1.0f, 1.0f, PS_PLAIN, 0x80);
 
     Ps_SpriteScreen(TBO_WII_VS_PANELS, 0.0f, 63.0f, 256.0f, 191.0f,
@@ -2261,7 +2250,7 @@ static void Tb_DrawWii(void) {
         panStartX = Tb_WiiMotionQuarter(TBO_WII_MOTION_PAN_ENTRY_X, sTb->wiiHomeT * 3) + 11.95f;
         panStartY = Tb_WiiIdleBob((sTb->frames * 3) % 2000, 6.0f);
         giruStartX = 378.0f + Tb_WiiMotionQuarter(TBO_WII_MOTION_GIRU_X, sTb->wiiHomeT * 3)
-                     - 184.05f - 63.28f;
+                     - 184.05f - 117.0f;
         giruStartY = 233.0f + Tb_WiiMotionQuarter(TBO_WII_MOTION_GIRU_Y, sTb->wiiHomeT * 3)
                      - 71.85f;
         giruHover = Tb_WiiIdleBob(((sTb->frames * 3) + 500) % 2000, 4.5f);
@@ -2298,10 +2287,12 @@ static void Tb_DrawWii(void) {
                                 0.0f, 0.0f, 1.0f, 1.0f, PS_PLAIN, 0x80);
         }
         Ps_SpriteScreen(TBO_WII_GIRU, giruStartX, giruStartY + giruHover,
-                        giruStartX + TB_WII_SUB_GIRU_W, giruStartY + giruHover + TB_WII_SUB_GIRU_H,
+                        giruStartX + TB_WII_NATIVE_GIRU_W,
+                        giruStartY + giruHover + TB_WII_NATIVE_GIRU_H,
                         1.0f, 0.0f, 0.0f, 1.0f, PS_PLAIN, 0x80);
         Ps_SpriteScreen(TBO_WII_GIRU_EYE_DIM, giruStartX, giruStartY + giruHover,
-                        giruStartX + TB_WII_SUB_GIRU_W, giruStartY + giruHover + TB_WII_SUB_GIRU_H,
+                        giruStartX + TB_WII_NATIVE_GIRU_W,
+                        giruStartY + giruHover + TB_WII_NATIVE_GIRU_H,
                         1.0f, 0.0f, 0.0f, 1.0f, PS_PLAIN, 0x80);
         IconWin_PortHeadingMotion(sTb->frames, &iconDx, &iconDy, &iconAlpha,
                                   &iconScaleX, &iconScaleY, &titleDx, &titleDy,
@@ -2434,7 +2425,7 @@ static void Tb_DrawWiiNameText(f32 rise, s32 alpha) {
 
 static void Tb_DrawWiiName(void) {
     f32 in = (f32)sTb->modeT / 20.0f;
-    f32 rise, panX, panY, giruX, giruY, giruHover, turn, giruCx;
+    f32 rise, panX, panY, giruX, giruY, giruHover, turn, giruCx, travel, climb;
     s32 giruFrame = sTb->modeT < 29 ? sTb->modeT : 29;
     s32 alpha;
 
@@ -2458,21 +2449,22 @@ static void Tb_DrawWiiName(void) {
                         243.0f + panX - 270.0f * in, 521.0f + panY,
                         0.0f, 0.0f, 1.0f, 1.0f, PS_PLAIN, 0x80);
     giruHover = Tb_WiiIdleBob(((sTb->frames * 3) + 500) % 2000, 4.5f);
-    giruX = 378.0f + sTbWiiGiruNameX[giruFrame] - 184.05f;
-    /* The reversed home sprite needs the canvas offset. After Giru turns
-       toward the name field the texture is no longer reversed. */
-    giruX -= 63.28f * (giruFrame < 15 ? 1.0f : (f32)(29 - giruFrame) / 14.0f);
-    giruY = 233.0f + sTbWiiGiruNameY[giruFrame] - 71.85f
-            - 27.0f * (f32)giruFrame / 29.0f + giruHover;
+    /* Match the settings pose at frame zero. Travel left first, then climb
+       while Giru turns toward the name field at the upper left. */
+    travel = giruFrame < 10 ? (f32)giruFrame / 10.0f : 1.0f;
+    climb = giruFrame <= 10 ? 0.0f : (f32)(giruFrame - 10) / 19.0f;
+    climb = climb * climb * (3.0f - 2.0f * climb);
+    giruX = 261.0f * (1.0f - travel);
+    giruY = 233.0f - 195.0f * climb + giruHover;
     turn = giruFrame < 15 ? 1.0f - (f32)giruFrame / 15.0f : (f32)(giruFrame - 15) / 14.0f;
     if (turn < 0.02f) turn = 0.02f;
-    giruCx = giruX + TB_WII_SUB_GIRU_W * 0.5f;
-    Ps_SpriteScreen(TBO_WII_GIRU, giruCx - TB_WII_SUB_GIRU_W * turn * 0.5f, giruY,
-                    giruCx + TB_WII_SUB_GIRU_W * turn * 0.5f, giruY + TB_WII_SUB_GIRU_H,
+    giruCx = giruX + TB_WII_NATIVE_GIRU_W * 0.5f;
+    Ps_SpriteScreen(TBO_WII_GIRU, giruCx - TB_WII_NATIVE_GIRU_W * turn * 0.5f, giruY,
+                    giruCx + TB_WII_NATIVE_GIRU_W * turn * 0.5f, giruY + TB_WII_NATIVE_GIRU_H,
                     giruFrame < 15 ? 1.0f : 0.0f, 0.0f,
                     giruFrame < 15 ? 0.0f : 1.0f, 1.0f, PS_PLAIN, 0x80);
-    Ps_SpriteScreen(TBO_WII_GIRU_EYE_DIM, giruCx - TB_WII_SUB_GIRU_W * turn * 0.5f, giruY,
-                    giruCx + TB_WII_SUB_GIRU_W * turn * 0.5f, giruY + TB_WII_SUB_GIRU_H,
+    Ps_SpriteScreen(TBO_WII_GIRU_EYE_DIM, giruCx - TB_WII_NATIVE_GIRU_W * turn * 0.5f, giruY,
+                    giruCx + TB_WII_NATIVE_GIRU_W * turn * 0.5f, giruY + TB_WII_NATIVE_GIRU_H,
                     giruFrame < 15 ? 1.0f : 0.0f, 0.0f,
                     giruFrame < 15 ? 0.0f : 1.0f, 1.0f, PS_PLAIN, 0x80);
     /* Draw the frame at the source crop's native height. Its lower contour
