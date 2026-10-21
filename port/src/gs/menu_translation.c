@@ -25,11 +25,45 @@
 #endif
 
 enum { TR_MAX_FILE = 1024 * 1024, TR_MAX_ROWS = 640, TR_MAX_GROUPS = 160 };
-enum { TR_PORT_TEXT_COUNT = 3, TR_PORT_TEXT_MAX = 1024, TR_PORT_MAX_FILE = 64 * 1024 };
+enum { TR_PORT_TEXT_COUNT = 37, TR_PORT_TEXT_MAX = 1024, TR_PORT_MAX_FILE = 64 * 1024 };
 static const struct { const char *id, *original; } kPortText[TR_PORT_TEXT_COUNT] = {
     {PORT_TEXT_QUIT_CONFIRM, "Close the game?\nUnsaved progress will be lost."},
     {PORT_TEXT_NET_CONNECTING, "Connecting to your rival..."},
-    {PORT_TEXT_NET_RIVAL, "Your rival \"{name}\" is here! The match begins."}
+    {PORT_TEXT_NET_RIVAL, "Your rival \"{name}\" is here! The match begins."},
+    {"dragon-net/home/title", "Dragon Net Battle"},
+    {"dragon-net/home/battle", "Nintendo WFC Battle"},
+    {"dragon-net/home/friends", "Manage Friends"},
+    {"dragon-net/home/settings", "User Settings"},
+    {"dragon-net/battle/title", "Nintendo WFC Battle"},
+    {"dragon-net/battle/custom", "Custom Battle"},
+    {"dragon-net/battle/normal", "Normal Battle"},
+    {"dragon-net/battle/friend", "Friend Battle"},
+    {"dragon-net/battle/ranking", "Ranking Battle"},
+    {"dragon-net/battle/view-ranking", "View Ranking"},
+    {"dragon-net/battle/record", "Battle Record"},
+    {"dragon-net/custom/title", "Custom Battle"},
+    {"dragon-net/custom/one-v-one", "1 VS 1 Battle"},
+    {"dragon-net/custom/team", "Team Battle"},
+    {"dragon-net/custom/team-10-dp", "Team 10 DP Battle"},
+    {"dragon-net/custom/team-15-dp", "Team 15 DP Battle"},
+    {"dragon-net/custom/team-20-dp", "Team 20 DP Battle"},
+    {"dragon-net/friends/title", "Manage Friends"},
+    {"dragon-net/friends/list", "Friend List"},
+    {"dragon-net/friends/add", "Add Friend"},
+    {"dragon-net/friends/code", "My Friend Code"},
+    {"dragon-net/settings/title", "User Settings"},
+    {"dragon-net/settings/name", "Create Player Name"},
+    {"dragon-net/settings/initialize", "Initialize Wi-Fi Data"},
+    {"dragon-net/ranking/title", "View Ranking"},
+    {"dragon-net/ranking/area", "My Area"},
+    {"dragon-net/ranking/top-10", "Top 10"},
+    {"dragon-net/name/title", "Create Player Name"},
+    {"dragon-net/battle/help-custom", "Search for opponents nationwide and fight in a single battle. (Custom characters OK)"},
+    {"dragon-net/battle/help-normal", "Search for opponents nationwide and fight a normal battle."},
+    {"dragon-net/battle/help-friend", "Fight against a friend."},
+    {"dragon-net/battle/help-ranking", "Compete against other players for a ranking."},
+    {"dragon-net/battle/help-view-ranking", "View the battle rankings."},
+    {"dragon-net/battle/help-record", "View your battle record."}
 };
 typedef struct TrPortCatalog {
     char text[TR_PORT_TEXT_COUNT][TR_PORT_TEXT_MAX];
@@ -908,6 +942,16 @@ const char *MenuTranslation_PortText(const char *id) {
     for (i = 0; i < TR_PORT_TEXT_COUNT; i++) if (!strcmp(id, kPortText[i].id))
         return sPortText[i][0] ? sPortText[i] : NULL;
     return NULL;
+}
+/* Game-side Wii menu strings are copied into its own memory at screen entry. */
+int PortTbo_WiiTextCopy(int index, char *out, int capacity) {
+    const char *original, *resolved;
+    if (index < 0 || index >= TR_PORT_TEXT_COUNT - 3 || !out || capacity < 1) return 0;
+    original = kPortText[index + 3].original;
+    resolved = MenuTranslation_PortText(kPortText[index + 3].id);
+    if (!resolved) resolved = original;
+    snprintf(out, (size_t)capacity, "%s", resolved);
+    return strcmp(out, original) != 0;
 }
 const char *MenuTranslation_Original(const char *id) { TrRow *r = __atomic_load_n(&sReady, __ATOMIC_ACQUIRE) ? tr_find(id) : NULL; return r != NULL ? r->original : NULL; }
 const char *MenuTranslation_Group(const char *id) { int i; if (!__atomic_load_n(&sReady, __ATOMIC_ACQUIRE)) return NULL; for (i = 0; i < sNGroups; i++) if (strcmp(sGroups[i].id, id) == 0) return sGroups[i].text; return NULL; }

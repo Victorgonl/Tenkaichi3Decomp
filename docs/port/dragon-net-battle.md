@@ -103,3 +103,26 @@ their bounds into `tbo_sizes.h`. Custom Battle uses the outline's left edge for 
 height for font size; scaling the fill to the full outline height made the text too tall. Focused text
 uses the same orange palette as the Versus Duel Menu, and unfocused text uses its purple palette. The Wii bars use
 screen coordinates, so the font's page coordinates are converted before drawing to keep the two aligned on wide displays.
+# Editable Dragon Net Battle text
+
+The Dragon Net Battle screens read their entries and headers from
+`gamedata/game-text/translations/port/en.json`. Edit the `text` value of an ID
+beginning with `dragon-net/`, leaving its `original` and ID unchanged. This
+includes the home, battle, custom battle, friends, settings, and ranking
+headers and entries. The battle help lines are editable there too. The
+Create Player Name keyboard title always uses its Wii artwork.
+Fighting Point always uses its Wii artwork. Restart the game to load changes.
+
+With **Menu font: Original**, unchanged labels use the extracted Wii artwork;
+edited labels use the Menu font. Selecting any other Menu font renders all
+entries and headers through the same row renderer and Evolution Z menu styles,
+including unchanged English text. The Wii rows keep their screen
+positions and the headers keep their entrance animation. Longer wording is
+fitted to its available width. The screen reader uses the edited entries and
+headers as well, while the keyboard title remains artwork.
+Disabled font labels use the same dim tint as their Wii bars.
+Font labels use Evolution Z's 19-pixel plate-caption letter height in both
+states. Their focused layer replaces the idle layer during the four-frame
+selection change, then continues a looping vertical stretch while focused.
+Text follows each bar's entrance motion. The first focused entry begins the
+effect after the page's rows finish entering.

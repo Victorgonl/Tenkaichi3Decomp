@@ -42,6 +42,9 @@ extern void MsgWin_PortDrawString(u16 *str); /* (battle/view_a_b.c) the box with
 extern s32 MsgWin_PortLineRoom(s32 right);
 extern void MsgWin_PortSameTop(void);
 extern s32 Port_WiiArtAvailable(void);
+extern s32 PortTbo_WiiTextCopy(s32 index, char *out, s32 capacity);
+extern s32 PortTbo_WiiUseFont(void);
+extern s32 PortTbo_TextId(const char *text, s32 kind);
 extern s32 Port_DcNameOpen(void);
 extern void Port_DcNameClose(void);
 extern s32 Port_DcNameKey(s32 page, s32 row, s32 col);
@@ -338,6 +341,7 @@ typedef struct TboScreen {
     s32 wiiCur;
     s32 wiiPrevCur;
     s32 wiiSelectT;
+    s32 wiiFocusFrame;
     s32 wiiHomeT;      /* Wii FOD entrance frame; begins after the screen fade */
     s32 wiiDialogLine;
     s32 wiiDialogT;
@@ -422,6 +426,129 @@ static char *sTbWiiFriendsName[3] = {"Friend List", "Add Friend", "My Friend Cod
 static char *sTbWiiSettingsName[2] = {"Create Player Name", "Initialize Wi-Fi Data"};
 static char *sTbWiiRankingName[2] = {"My Area", "Top 10"};
 
+/* Keep the selected catalog's words in game memory for drawing, help text,
+   and the screen reader. Art-backed labels use the font only when edited. */
+enum { TB_WII_TEXT_COUNT = 34, TB_WII_TEXT_SIZE = 256 };
+static char sTbWiiText[TB_WII_TEXT_COUNT][TB_WII_TEXT_SIZE];
+static u8 sTbWiiTextEdited[TB_WII_TEXT_COUNT];
+#define TB_WII_TX_HOME_TITLE 0
+#define TB_WII_TX_HOME_ROW 1
+#define TB_WII_TX_BATTLE_TITLE 4
+#define TB_WII_TX_BATTLE_ROW 5
+#define TB_WII_TX_CUSTOM_TITLE 11
+#define TB_WII_TX_CUSTOM_ROW 12
+#define TB_WII_TX_FRIENDS_TITLE 17
+#define TB_WII_TX_FRIENDS_ROW 18
+#define TB_WII_TX_SETTINGS_TITLE 21
+#define TB_WII_TX_SETTINGS_ROW 22
+#define TB_WII_TX_RANKING_TITLE 24
+#define TB_WII_TX_RANKING_ROW 25
+#define TB_WII_TX_NAME_TITLE 27
+#define TB_WII_TX_BATTLE_HELP 28
+static void Tb_LoadWiiText(void) {
+    s32 i;
+    for (i = 0; i < TB_WII_TEXT_COUNT; i++)
+        sTbWiiTextEdited[i] = PortTbo_WiiTextCopy(i, sTbWiiText[i], TB_WII_TEXT_SIZE);
+    for (i = 0; i < 3; i++) {
+        sTbWiiHomeName[i] = sTbWiiText[TB_WII_TX_HOME_ROW + i];
+        sTbWiiFriendsName[i] = sTbWiiText[TB_WII_TX_FRIENDS_ROW + i];
+    }
+    for (i = 0; i < 6; i++) {
+        sTbWiiBattleName[i] = sTbWiiText[TB_WII_TX_BATTLE_ROW + i];
+        sTbWiiBattleHelp[i] = sTbWiiText[TB_WII_TX_BATTLE_HELP + i];
+    }
+    for (i = 0; i < TB_WII_CUSTOM_COUNT; i++) sTbWiiCustomName[i] = sTbWiiText[TB_WII_TX_CUSTOM_ROW + i];
+    for (i = 0; i < 2; i++) {
+        sTbWiiSettingsName[i] = sTbWiiText[TB_WII_TX_SETTINGS_ROW + i];
+        sTbWiiRankingName[i] = sTbWiiText[TB_WII_TX_RANKING_ROW + i];
+    }
+}
+
+/* Apply the same GS tint used by the disabled Wii bar artwork to its text. */
+static u32 Tb_WiiTintText(u32 color, u32 tint) {
+    return Ps_Rgba(((color & 0xff) * (tint & 0xff)) / 0x80,
+                   (((color >> 8) & 0xff) * ((tint >> 8) & 0xff)) / 0x80,
+                   (((color >> 16) & 0xff) * ((tint >> 16) & 0xff)) / 0x80,
+                   (color >> 24) & 0xff);
+}
+
+static s32 Tb_WiiFocusAlpha(s32 row, s32 current) {
+    if (row == current) return sTb->wiiSelectT >= 4 ? 0x80 : sTb->wiiSelectT * 0x80 / 4;
+    if (row == sTb->wiiPrevCur && sTb->wiiSelectT < 4)
+        return (4 - sTb->wiiSelectT) * 0x80 / 4;
+    return 0;
+}
+
+/* Evolution Z's mc_menu_text_on track in the PS2 movie (00452.bin):
+   fl_on_loop has 49 frames, rising by 1/96 to 1.25 then falling by 1/100.
+   Only the vertical component is used for the Wii caption. */
+static f32 Tb_WiiFocusStretch(void) {
+    s32 frame = sTb->wiiFocusFrame % 49;
+    if (frame <= 24) return 1.0f + (f32)frame / 96.0f;
+    return 1.0f + (f32)(49 - frame) / 100.0f;
+}
+
+/* Wii coordinates are screen pixels; menu text uses page coordinates. The
+   selected layer replaces the idle layer as the Evolution Z clip switches. */
+static void Tb_WiiLabelText(char *label, f32 x, f32 y, s32 focusAlpha, u32 tint) {
+    s32 layer;
+    y -= 3.0f;
+    if (PortTbo_WiiUseFont()) {
+        for (layer = 0; layer < 2; layer++) {
+            s32 opacity = layer ? focusAlpha : 0x80 - focusAlpha;
+            s32 id;
+            if (opacity <= 0) continue;
+            id = PortTbo_TextId(label, layer ? 4 : 3);
+            if (id >= 0) {
+                f32 stretch = layer ? Tb_WiiFocusStretch() : 1.0f;
+                f32 top = y + 16.0f - 16.0f * stretch;
+                Ps_SpriteScreen(id, x, top, x + 512.0f, top + 32.0f * stretch,
+                                0.0f, 0.0f, 1.0f, 1.0f, tint, opacity);
+            }
+        }
+        return;
+    }
+    {
+        f32 sx = 1.0f / (Ps_X(1.0f) - Ps_X(0.0f));
+        f32 sy = 1.0f / (Ps_Y(1.0f) - Ps_Y(0.0f));
+        f32 scaleX = (19.0f / (PS_CELL_UNITS * PS_CAP_OF_CELL)) * sx;
+        f32 scaleY = (19.0f / (PS_CELL_UNITS * PS_CAP_OF_CELL)) * sy;
+        f32 tx = (x - Ps_X(0.0f)) * sx;
+        f32 textMiddle = (y + 16.0f - Ps_Y(0.0f)) * sy;
+        Ps_Align(0);
+        for (layer = 0; layer < 2; layer++) {
+            s32 opacity = layer ? focusAlpha : 0x80 - focusAlpha;
+            f32 stretch = layer ? Tb_WiiFocusStretch() : 1.0f;
+            f32 textY = Ps_TextTop(textMiddle, scaleY * stretch);
+            if (opacity <= 0) continue;
+            Ps_TextExOuterXY(tx, textY, label, scaleX, scaleY * stretch, 230.0f * sx,
+                             Tb_WiiTintText(Ps_Rgba(layer ? 0xF4 : 0xCB, layer ? 0xEF : 0xCB,
+                                                    layer ? 0x89 : 0xCB, opacity), tint),
+                             Tb_WiiTintText(Ps_Rgba(layer ? 0xD2 : 0xCB, layer ? 0x68 : 0xCB,
+                                                    layer ? 0x4B : 0xCB, opacity), tint),
+                             Tb_WiiTintText(Ps_Rgba(layer ? 0x2C : 0x46, layer ? 0x15 : 0x00,
+                                                    layer ? 0x1B : 0x59, opacity), tint),
+                             Tb_WiiTintText(Ps_Rgba(layer ? 0x2C : 0x46, layer ? 0x15 : 0x00,
+                                                    layer ? 0x1B : 0x59, opacity), tint), sy);
+        }
+    }
+}
+static void Tb_WiiTitleText(s32 index, f32 x, f32 y, f32 scaleX, f32 scaleY, s32 alpha) {
+    if (PortTbo_WiiUseFont()) {
+        s32 id = PortTbo_TextId(sTbWiiText[index], 5);
+        if (id >= 0)
+            Ps_SpriteScreen(id, x, y, x + 512.0f * scaleX, y + 64.0f * scaleY,
+                            0.0f, 0.0f, 1.0f, 1.0f, PS_PLAIN, alpha);
+        return;
+    }
+    f32 sx = 1.0f / (Ps_X(1.0f) - Ps_X(0.0f));
+    f32 sy = 1.0f / (Ps_Y(1.0f) - Ps_Y(0.0f));
+    f32 textScale = 2.2f * scaleY * sy;
+    Ps_Heading((x - Ps_X(0.0f)) * sx,
+               Ps_TextTop((y + 32.0f * scaleY - Ps_Y(0.0f)) * sy, textScale),
+               sTbWiiText[index], textScale, 470.0f * scaleX * sx, alpha);
+}
+
 static s32 Tb_Home(void) {
     return sTb->wii ? TB_WII_BATTLE : TB_HUB;
 }
@@ -475,6 +602,9 @@ static void Tb_SetMode(s32 mode) {
     sTb->typing = mode == TB_JOIN || mode == TB_NAME;
     Port_TextMode(sTb->typing);
     if (sTb->mode != mode) { /* (the page that is up again, as when the rival comes on the search: it does not come in anew) */
+        sTb->wiiPrevCur = -1;
+        sTb->wiiSelectT = mode >= TB_WII_HOME ? 0 : 4;
+        sTb->wiiFocusFrame = 0;
         if (sTb->wiiDialogStarted) Voice_Stop(0);
         sTb->wiiDialogStarted = 0;
         sTb->wiiDialogText[0] = 0;
@@ -921,10 +1051,11 @@ static void Tb_WiiUpdate(s32 live) {
     {
         s32 previous = *cur;
         Ps_Move(cur, count);
-        if (sTb->mode == TB_WII_HOME && *cur != previous) {
+        if (*cur != previous) {
             sTb->wiiPrevCur = previous;
             sTb->wiiSelectT = 0;
-            sTb->wiiDialogTouched = 1;
+            sTb->wiiFocusFrame = 0;
+            if (sTb->mode == TB_WII_HOME) sTb->wiiDialogTouched = 1;
         }
         if (*cur != previous && sTb->mode != TB_WII_BATTLE && sTb->mode != TB_WII_CUSTOM)
             Tb_WiiDialogSet(Tb_WiiLine());
@@ -1627,20 +1758,24 @@ static void Tb_DrawWiiHomeArt(void) {
     }
     for (i = 0; i < 3; i++) {
         f32 y = 91.0f + (f32)i * 47.0f;
-        s32 selectAlpha = i == sTb->wiiCur ? (sTb->wiiSelectT >= 4 ? 0x80 : sTb->wiiSelectT * 0x80 / 4)
-                         : i == sTb->wiiPrevCur && sTb->wiiSelectT < 4 ? (4 - sTb->wiiSelectT) * 0x80 / 4 : 0;
+        s32 selectAlpha = Tb_WiiFocusAlpha(i, sTb->wiiCur);
         u32 tint = i == 1 ? Ps_Rgba(0x58, 0x58, 0x58, 0x80) : PS_PLAIN;
         Ps_SpriteScreen(TBO_WII_BAR_BLUE, barX, y, barX + 461.0f, y + 58.0f,
                         0.0f, 0.0f, 1.0f, 1.0f, tint, 0x80);
         if (selectAlpha > 0)
             Ps_SpriteScreen(TBO_WII_BAR_GOLD, barX, y, barX + 461.0f, y + 58.0f,
                             0.0f, 0.0f, 1.0f, 1.0f, tint, selectAlpha);
-        Ps_SpriteScreen(TBO_WII_LABEL_IDLE, barX + 49.0f, y + 2.0f, barX + 561.0f, y + 34.0f,
-                        0.0f, (f32)i * 0.25f, 1.0f, (f32)(i + 1) * 0.25f, tint, 0x80);
-        if (selectAlpha > 0)
-            Ps_SpriteScreen(TBO_WII_LABEL_SELECTED, barX + 49.0f, y + 2.0f,
-                            barX + 561.0f, y + 34.0f,
-                            0.0f, (f32)i * 0.25f, 1.0f, (f32)(i + 1) * 0.25f, tint, selectAlpha);
+        if (PortTbo_WiiUseFont() || sTbWiiTextEdited[TB_WII_TX_HOME_ROW + i]) {
+            Tb_WiiLabelText(sTbWiiHomeName[i], barX + 49.0f, y + 2.0f,
+                            selectAlpha, tint);
+        } else {
+            Ps_SpriteScreen(TBO_WII_LABEL_IDLE, barX + 49.0f, y + 2.0f, barX + 561.0f, y + 34.0f,
+                            0.0f, (f32)i * 0.25f, 1.0f, (f32)(i + 1) * 0.25f, tint, 0x80);
+            if (selectAlpha > 0)
+                Ps_SpriteScreen(TBO_WII_LABEL_SELECTED, barX + 49.0f, y + 2.0f,
+                                barX + 561.0f, y + 34.0f,
+                                0.0f, (f32)i * 0.25f, 1.0f, (f32)(i + 1) * 0.25f, tint, selectAlpha);
+        }
     }
     /* The rows finish sliding in at source frame 17 (port frame 23).
        Show the radar afterward and put it directly on the selected row. */
@@ -1654,17 +1789,21 @@ static void Tb_DrawWiiHomeArt(void) {
                         sTb->wiiCur == 1 ? Ps_Rgba(0x58, 0x58, 0x58, 0x80) : PS_PLAIN,
                         radarAlpha);
     }
+    /* The native mc_title grows horizontally from its left edge. */
+    if (PortTbo_WiiUseFont() || sTbWiiTextEdited[TB_WII_TX_HOME_TITLE])
+        Tb_WiiTitleText(TB_WII_TX_HOME_TITLE, 62.0f + titleDx, 17.0f + titleDy,
+                        titleScaleX, titleScaleY, titleAlpha);
+    else
+        Ps_SpriteScreen(TBO_WII_TITLE, 62.0f + titleDx,
+                        17.0f + titleDy,
+                        62.0f + titleDx + 512.0f * titleScaleX,
+                        17.0f + titleDy + 64.0f * titleScaleY,
+                        0.0f, 0.0f, 1.0f, 1.0f, PS_PLAIN, titleAlpha);
     Ps_SpriteScreen(TBO_WII_CREST, 45.0f + iconDx - 32.0f * iconScaleX,
                     48.0f + iconDy - 32.0f * iconScaleY,
                     45.0f + iconDx + 32.0f * iconScaleX,
                     48.0f + iconDy + 32.0f * iconScaleY,
                     0.0f, 0.0f, 1.0f, 1.0f, PS_PLAIN, iconAlpha);
-    /* The native mc_title grows horizontally from its left edge. */
-    Ps_SpriteScreen(TBO_WII_TITLE, 62.0f + titleDx,
-                    17.0f + titleDy,
-                    62.0f + titleDx + 512.0f * titleScaleX,
-                    17.0f + titleDy + 64.0f * titleScaleY,
-                    0.0f, 0.0f, 1.0f, 1.0f, PS_PLAIN, titleAlpha);
     MsgWin_PortDrawString(Tb_BoxLine());
 }
 
@@ -1818,53 +1957,65 @@ static void Tb_DrawWiiBattle(void) {
         f32 x = 170.0f + (f32)i * TB_WII_BATTLE_ROW_STEP_X
                 + (1.0f - Tb_In(i * 2)) * 512.0f;
         f32 y = 67.0f + (f32)i * (custom ? 45.0f : 42.0f);
-        s32 selected = i == (custom ? sTb->wiiCustomCur : sTb->wiiBattleCur);
+        s32 focusAlpha = Tb_WiiFocusAlpha(i, custom ? sTb->wiiCustomCur : sTb->wiiBattleCur);
         f32 v0 = (f32)i * 32.0f / 256.0f;
         f32 v1 = (f32)(i + 1) * 32.0f / 256.0f;
         u32 tint = (custom || i != 0) ? disabled : PS_PLAIN;
         Ps_SpriteScreen(TBO_WII_BATTLE_BAR_BLUE, x, y, x + 512.0f, y + 64.0f,
                         0.0f, 0.0f, 1.0f, 1.0f, tint, 0x80);
-        if (selected)
+        if (focusAlpha > 0)
             Ps_SpriteScreen(TBO_WII_BATTLE_BAR_GOLD, x, y, x + 512.0f, y + 64.0f,
-                            0.0f, 0.0f, 1.0f, 1.0f, tint, 0x80);
+                            0.0f, 0.0f, 1.0f, 1.0f, tint, focusAlpha);
         if (custom) {
-            const u16 *bounds = sTboWiiBattleLabelRow0[selected ? 1 : 0];
-            /* The same label texture entry as the preceding screen supplies
-               the left edge and letter height. Sprites use screen coordinates,
-               but Ps_TextExOuterXY uses the port's page coordinates. */
-            f32 pagePerScreenX = 1.0f / (Ps_X(1.0f) - Ps_X(0.0f));
-            f32 pagePerScreenY = 1.0f / (Ps_Y(1.0f) - Ps_Y(0.0f));
-            /* The alpha bounds include the thick outline. Match the 19-pixel
-               interior fill instead of scaling the fill to all 28 pixels. */
-            f32 screenScale = (f32)(sTboWiiBattleLabelFillRow0[3] - sTboWiiBattleLabelFillRow0[1]) /
-                              (PS_CELL_UNITS * PS_CAP_OF_CELL);
-            f32 scaleX = screenScale * pagePerScreenX;
-            f32 scaleY = screenScale * pagePerScreenY;
-            f32 textX = (x + 49.0f + (f32)bounds[0] - Ps_X(0.0f)) * pagePerScreenX;
-            f32 textMiddle = (y + 5.0f + (f32)(sTboWiiBattleLabelFillRow0[1] +
-                                              sTboWiiBattleLabelFillRow0[3]) * 0.5f - Ps_Y(0.0f)) * pagePerScreenY;
-            f32 textY = Ps_TextTop(textMiddle, scaleY);
-            Ps_Align(0);
-            if (selected)
-                Ps_TextExOuterXY(textX, textY, sTbWiiCustomName[i], scaleX, scaleY,
-                                 230.0f * pagePerScreenX,
-                                 Ps_Rgba(0xF4, 0xEF, 0x89, 0x80), Ps_Rgba(0xD2, 0x68, 0x4B, 0x80),
-                                 Ps_Rgba(0x2C, 0x15, 0x1B, 0x80), Ps_Rgba(0x2C, 0x15, 0x1B, 0x80),
-                                 1.0f * pagePerScreenY);
-            else
-                Ps_TextExOuterXY(textX, textY, sTbWiiCustomName[i], scaleX, scaleY,
-                                 230.0f * pagePerScreenX,
-                                 Ps_Rgba(0xCB, 0xCB, 0xCB, 0x80), Ps_Rgba(0xCB, 0xCB, 0xCB, 0x80),
-                                 Ps_Rgba(0x46, 0x00, 0x59, 0x80), Ps_Rgba(0x46, 0x00, 0x59, 0x80),
-                                 1.0f * pagePerScreenY);
+            if (PortTbo_WiiUseFont()) {
+                Tb_WiiLabelText(sTbWiiCustomName[i], x + 49.0f, y + 5.0f, focusAlpha, tint);
+            } else {
+                /* Match the Wii sheet's idle and selected layers during focus fades. */
+                f32 pagePerScreenX = 1.0f / (Ps_X(1.0f) - Ps_X(0.0f));
+                f32 pagePerScreenY = 1.0f / (Ps_Y(1.0f) - Ps_Y(0.0f));
+                f32 screenScale = (f32)(sTboWiiBattleLabelFillRow0[3] - sTboWiiBattleLabelFillRow0[1]) /
+                                  (PS_CELL_UNITS * PS_CAP_OF_CELL);
+                f32 scaleX = screenScale * pagePerScreenX;
+                f32 scaleY = screenScale * pagePerScreenY;
+                f32 textMiddle = (y + 2.0f + (f32)(sTboWiiBattleLabelFillRow0[1] +
+                                                  sTboWiiBattleLabelFillRow0[3]) * 0.5f - Ps_Y(0.0f)) * pagePerScreenY;
+                s32 layer;
+                Ps_Align(0);
+                for (layer = 0; layer < 2; layer++) {
+                    const u16 *bounds = sTboWiiBattleLabelRow0[layer];
+                    s32 opacity = layer ? focusAlpha : 0x80 - focusAlpha;
+                    f32 textX = (x + 49.0f + (f32)bounds[0] - Ps_X(0.0f)) * pagePerScreenX;
+                    f32 stretch = layer ? Tb_WiiFocusStretch() : 1.0f;
+                    f32 textY = Ps_TextTop(textMiddle, scaleY * stretch);
+                    if (opacity <= 0) continue;
+                    Ps_TextExOuterXY(textX, textY, sTbWiiCustomName[i], scaleX, scaleY * stretch,
+                                     230.0f * pagePerScreenX,
+                                     Tb_WiiTintText(Ps_Rgba(layer ? 0xF4 : 0xCB, layer ? 0xEF : 0xCB,
+                                                            layer ? 0x89 : 0xCB, opacity), tint),
+                                     Tb_WiiTintText(Ps_Rgba(layer ? 0xD2 : 0xCB, layer ? 0x68 : 0xCB,
+                                                            layer ? 0x4B : 0xCB, opacity), tint),
+                                     Tb_WiiTintText(Ps_Rgba(layer ? 0x2C : 0x46, layer ? 0x15 : 0x00,
+                                                            layer ? 0x1B : 0x59, opacity), tint),
+                                     Tb_WiiTintText(Ps_Rgba(layer ? 0x2C : 0x46, layer ? 0x15 : 0x00,
+                                                            layer ? 0x1B : 0x59, opacity), tint),
+                                     1.0f * pagePerScreenY);
+                }
+            }
         } else {
-            Ps_SpriteScreen(TBO_WII_BATTLE_LABEL_IDLE, x + 49.0f, y + 5.0f,
-                            x + 561.0f, y + 37.0f,
-                            0.0f, v0, 1.0f, v1, tint, 0x80);
-            if (selected)
-                Ps_SpriteScreen(TBO_WII_BATTLE_LABEL_SELECTED, x + 49.0f, y + 5.0f,
+            if (PortTbo_WiiUseFont() || sTbWiiTextEdited[TB_WII_TX_BATTLE_ROW + i])
+                Tb_WiiLabelText(sTbWiiBattleName[i], x + 49.0f, y + 5.0f, focusAlpha, tint);
+            else {
+                Ps_SpriteScreen(TBO_WII_BATTLE_LABEL_IDLE, x + 49.0f, y + 5.0f,
                                 x + 561.0f, y + 37.0f,
                                 0.0f, v0, 1.0f, v1, tint, 0x80);
+                if (focusAlpha > 0) {
+                    f32 stretch = Tb_WiiFocusStretch();
+                    f32 top = y + 21.0f - 16.0f * stretch;
+                    Ps_SpriteScreen(TBO_WII_BATTLE_LABEL_SELECTED, x + 49.0f, top,
+                                    x + 561.0f, top + 32.0f * stretch,
+                                    0.0f, v0, 1.0f, v1, tint, focusAlpha);
+                }
+            }
         }
     }
     if (sTb->wiiBattleT >= 20) {
@@ -1879,16 +2030,20 @@ static void Tb_DrawWiiBattle(void) {
     IconWin_PortHeadingMotion(sTb->wiiBattleT, &iconDx, &iconDy, &iconAlpha,
                               &iconScaleX, &iconScaleY, &titleDx, &titleDy,
                               &titleAlpha, &titleScaleX, &titleScaleY);
+    if (PortTbo_WiiUseFont() || sTbWiiTextEdited[custom ? TB_WII_TX_CUSTOM_TITLE : TB_WII_TX_BATTLE_TITLE])
+        Tb_WiiTitleText(custom ? TB_WII_TX_CUSTOM_TITLE : TB_WII_TX_BATTLE_TITLE,
+                        62.0f + titleDx, 17.0f + titleDy, titleScaleX, titleScaleY, titleAlpha);
+    else
+        Ps_SpriteScreen(custom ? TBO_WII_CUSTOM_TITLE : TBO_WII_BATTLE_TITLE,
+                        62.0f + titleDx, 17.0f + titleDy,
+                        62.0f + titleDx + 512.0f * titleScaleX,
+                        17.0f + titleDy + 64.0f * titleScaleY,
+                        0.0f, 0.0f, 1.0f, 1.0f, PS_PLAIN, titleAlpha);
     Ps_SpriteScreen(TBO_WII_CREST, 45.0f + iconDx - 32.0f * iconScaleX,
                     48.0f + iconDy - 32.0f * iconScaleY,
                     45.0f + iconDx + 32.0f * iconScaleX,
                     48.0f + iconDy + 32.0f * iconScaleY,
                     0.0f, 0.0f, 1.0f, 1.0f, PS_PLAIN, iconAlpha);
-    Ps_SpriteScreen(custom ? TBO_WII_CUSTOM_TITLE : TBO_WII_BATTLE_TITLE,
-                    62.0f + titleDx, 17.0f + titleDy,
-                    62.0f + titleDx + 512.0f * titleScaleX,
-                    17.0f + titleDy + 64.0f * titleScaleY,
-                    0.0f, 0.0f, 1.0f, 1.0f, PS_PLAIN, titleAlpha);
 }
 
 static void Tb_DrawWii(void) {
@@ -1965,8 +2120,7 @@ static void Tb_DrawWii(void) {
             f32 y = 103.0f + (f32)i * 48.0f;
             s32 disabled = i == 1;
             u32 tint = disabled ? Ps_Rgba(0x58, 0x58, 0x58, 0x80) : PS_PLAIN;
-            s32 selected = i == sTb->wiiSubCur;
-            s32 focusAlpha = selected ? 0x80 : 0;
+            s32 focusAlpha = Tb_WiiFocusAlpha(i, sTb->wiiSubCur);
 
             Ps_SpriteScreen(TBO_WII_BAR_BLUE,
                             162.0f, y, 623.0f, y + 58.0f,
@@ -1974,14 +2128,18 @@ static void Tb_DrawWii(void) {
             if (focusAlpha > 0)
                 Ps_SpriteScreen(TBO_WII_BAR_GOLD, 162.0f, y, 623.0f, y + 58.0f,
                                 0.0f, 0.0f, 1.0f, 1.0f, tint, focusAlpha);
-            Ps_SpriteScreen(TBO_WII_SETTINGS_LABEL_IDLE,
-                            212.0f, y + 3.0f, 724.0f, y + 35.0f,
-                            0.0f, (f32)i * 0.5f, 1.0f, (f32)(i + 1) * 0.5f, tint, 0x80);
-            if (focusAlpha > 0)
-                Ps_SpriteScreen(TBO_WII_SETTINGS_LABEL_SELECTED,
+            if (PortTbo_WiiUseFont() || sTbWiiTextEdited[TB_WII_TX_SETTINGS_ROW + i])
+                Tb_WiiLabelText(sTbWiiSettingsName[i], 212.0f, y + 3.0f, focusAlpha, tint);
+            else {
+                Ps_SpriteScreen(TBO_WII_SETTINGS_LABEL_IDLE,
                                 212.0f, y + 3.0f, 724.0f, y + 35.0f,
-                                0.0f, (f32)i * 0.5f, 1.0f, (f32)(i + 1) * 0.5f,
-                                tint, focusAlpha);
+                                0.0f, (f32)i * 0.5f, 1.0f, (f32)(i + 1) * 0.5f, tint, 0x80);
+                if (focusAlpha > 0)
+                    Ps_SpriteScreen(TBO_WII_SETTINGS_LABEL_SELECTED,
+                                    212.0f, y + 3.0f, 724.0f, y + 35.0f,
+                                    0.0f, (f32)i * 0.5f, 1.0f, (f32)(i + 1) * 0.5f,
+                                    tint, focusAlpha);
+            }
         }
         {
             f32 radarY = 120.0f + (f32)sTb->wiiSubCur * 48.0f;
@@ -1991,16 +2149,20 @@ static void Tb_DrawWii(void) {
                         sTb->wiiSubCur == 1 ? Ps_Rgba(0x58, 0x58, 0x58, 0x80) : PS_PLAIN,
                         0x80);
         }
+        if (PortTbo_WiiUseFont() || sTbWiiTextEdited[TB_WII_TX_SETTINGS_TITLE])
+            Tb_WiiTitleText(TB_WII_TX_SETTINGS_TITLE, 62.0f + titleDx, 17.0f + titleDy,
+                            titleScaleX, titleScaleY, titleAlpha);
+        else
+            Ps_SpriteScreen(TBO_WII_SETTINGS_TITLE, 62.0f + titleDx,
+                            17.0f + titleDy,
+                            62.0f + titleDx + 512.0f * titleScaleX,
+                            17.0f + titleDy + 64.0f * titleScaleY,
+                            0.0f, 0.0f, 1.0f, 1.0f, PS_PLAIN, titleAlpha);
         Ps_SpriteScreen(TBO_WII_CREST, 45.0f + iconDx - 32.0f * iconScaleX,
                         48.0f + iconDy - 32.0f * iconScaleY,
                         45.0f + iconDx + 32.0f * iconScaleX,
                         48.0f + iconDy + 32.0f * iconScaleY,
                         0.0f, 0.0f, 1.0f, 1.0f, PS_PLAIN, iconAlpha);
-        Ps_SpriteScreen(TBO_WII_SETTINGS_TITLE, 62.0f + titleDx,
-                        17.0f + titleDy,
-                        62.0f + titleDx + 512.0f * titleScaleX,
-                        17.0f + titleDy + 64.0f * titleScaleY,
-                        0.0f, 0.0f, 1.0f, 1.0f, PS_PLAIN, titleAlpha);
         return;
     }
 
@@ -2451,6 +2613,15 @@ static char *Tb_Help(void) {
 static char *sTbTitle[16] = {"Tenkaichi Budokai Online", "Create Room", "Join Room", "Searching", "Profile", "Profile", "Quick Match",
                              "Train While Waiting", "Tenkaichi Budokai Online", "Dragon Net Battle", "Nintendo WFC Battle",
                              "Manage Friends", "User Settings", "View Ranking", "Create Player Name", "Custom Battle"};
+static void Tb_SetWiiTitles(void) {
+    sTbTitle[TB_WII_HOME] = sTbWiiText[TB_WII_TX_HOME_TITLE];
+    sTbTitle[TB_WII_BATTLE] = sTbWiiText[TB_WII_TX_BATTLE_TITLE];
+    sTbTitle[TB_WII_CUSTOM] = sTbWiiText[TB_WII_TX_CUSTOM_TITLE];
+    sTbTitle[TB_WII_FRIENDS] = sTbWiiText[TB_WII_TX_FRIENDS_TITLE];
+    sTbTitle[TB_WII_SETTINGS] = sTbWiiText[TB_WII_TX_SETTINGS_TITLE];
+    sTbTitle[TB_WII_RANKING] = sTbWiiText[TB_WII_TX_RANKING_TITLE];
+    sTbTitle[TB_WII_NAME] = sTbWiiText[TB_WII_TX_NAME_TITLE];
+}
 
 /* ---- the screen reader (port/src/gs/a11y.c; silent unless the player has it on). The game's own screens are read
    from their state by port/src/a11y_game.c; these pages say what they show themselves: the page's title as it opens,
@@ -2817,7 +2988,7 @@ static void Tb_DrawText(void) {
         {
             f32 rise = sTb->modeT < 16 ? (f32)(16 - sTb->modeT) * 18.0f : 0.0f;
             Ps_SpriteScreen(TBO_WII_NAME_TITLE, 0.0f, 46.0f + rise, 512.0f, 110.0f + rise,
-                        0.0f, 0.0f, 1.0f, 1.0f, PS_PLAIN, 0x80);
+                            0.0f, 0.0f, 1.0f, 1.0f, PS_PLAIN, 0x80);
         }
         break;
     case TB_HUB:
@@ -2903,8 +3074,10 @@ s32 PortTbo_Run(void) {
     sTb = Heap_Alloc(sizeof(TboScreen), 0x20, 0, 2);
     memset(sTb, 0, sizeof(TboScreen));
     sTb->wii = gPortTboStartWii;
+    Tb_LoadWiiText();
+    Tb_SetWiiTitles();
     sTb->wiiPrevCur = -1;
-    sTb->wiiSelectT = 4;
+    sTb->wiiSelectT = sTb->wii ? 0 : 4;
     gPortTboStartWii = 0;
     if (sTb->wii) {
         sTb->mode = TB_WII_HOME;
@@ -3008,7 +3181,13 @@ s32 PortTbo_Run(void) {
         if (sTb->mode == TB_WII_HOME && live && sTb->wiiHomeT < 40) sTb->wiiHomeT++;
         if ((sTb->mode == TB_WII_BATTLE || sTb->mode == TB_WII_CUSTOM) && live) sTb->wiiBattleT++;
         if (sTb->wiiDialogStarted && live) sTb->wiiDialogT++;
-        if (sTb->wiiSelectT < 4) sTb->wiiSelectT++;
+        if (sTb->wiiSelectT < 4 &&
+            (!Port_WiiArtAvailable() ||
+             (sTb->mode != TB_WII_HOME || sTb->wiiHomeT >= 23) &&
+             ((sTb->mode != TB_WII_BATTLE && sTb->mode != TB_WII_CUSTOM) || sTb->wiiBattleT >= 30)))
+            sTb->wiiSelectT++;
+        if (sTb->wiiSelectT >= 4 && live && sTb->mode >= TB_WII_HOME)
+            sTb->wiiFocusFrame++;
         if (sTb->note > 0) {
             sTb->note--;
         }
