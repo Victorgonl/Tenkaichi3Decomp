@@ -91,6 +91,7 @@
     X(TBO_WII_BATTLE_POINT_LABEL, "wii_battle_point_label") \
     X(TBO_WII_BATTLE_POINT_DIGITS, "wii_battle_point_digits") \
     X(TBO_WII_CUSTOM_TITLE, "wii_custom_title") \
+    X(TBO_WII_NORMAL_TITLE, "wii_normal_title") \
     X(TBO_WII_VS_PANELS, "wii_vs_panels") \
     X(TBO_WII_VS_MARK, "wii_vs_mark") \
     X(TBO_WII_VS_LINES, "wii_vs_lines") \

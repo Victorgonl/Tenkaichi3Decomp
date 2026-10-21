@@ -455,7 +455,7 @@ def online_locales(afs, matches):
 def extract_battle_art(section, art_root, locale):
     """Save the Wii battle page's language-dependent lettering sheets."""
     positions = table(section, f"{locale} section 1")
-    wanted = {3: {29, 30, 41, 42}, 4: {1, 2}}
+    wanted = {3: {29, 30, 41, 42}, 4: {1, 2, 3}}
     for resource_index, indices in wanted.items():
         resource = section[positions[resource_index]:positions[resource_index + 1]]
         folder = art_root / locale / "section-01" / f"resource-{resource_index:03d}-textures"

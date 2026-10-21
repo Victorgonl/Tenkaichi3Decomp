@@ -62,6 +62,7 @@ WII_BATTLE = {
     "wii_battle_point_label": (3, 41),
     "wii_battle_point_digits": (3, 5),
     "wii_custom_title": (4, 2),
+    "wii_normal_title": (4, 3),
     "wii_vs_panels": (3, 20),
     "wii_vs_mark": (3, 40),
     "wii_vs_lines": (3, 21),

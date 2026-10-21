@@ -2136,13 +2136,15 @@ static void Tb_DrawWiiBattle(void) {
     IconWin_PortHeadingMotion(sTb->wiiBattleT, &iconDx, &iconDy, &iconAlpha,
                               &iconScaleX, &iconScaleY, &titleDx, &titleDy,
                               &titleAlpha, &titleScaleX, &titleScaleY);
-    if ((custom && sTb->wiiNormalBattle) ||
-        PortTbo_WiiUseFontForArtwork(sTbWiiTextEdited[custom ? TB_WII_TX_CUSTOM_TITLE : TB_WII_TX_BATTLE_TITLE]))
+    if (PortTbo_WiiUseFontForArtwork(sTbWiiTextEdited[custom ? (sTb->wiiNormalBattle ? TB_WII_TX_NORMAL_TITLE
+                                                                               : TB_WII_TX_CUSTOM_TITLE)
+                                                              : TB_WII_TX_BATTLE_TITLE]))
         Tb_WiiTitleText(custom ? (sTb->wiiNormalBattle ? TB_WII_TX_NORMAL_TITLE : TB_WII_TX_CUSTOM_TITLE)
                                : TB_WII_TX_BATTLE_TITLE,
                         62.0f + titleDx, 17.0f + titleDy, titleScaleX, titleScaleY, titleAlpha);
     else
-        Ps_SpriteScreen(custom ? TBO_WII_CUSTOM_TITLE : TBO_WII_BATTLE_TITLE,
+        Ps_SpriteScreen(custom ? (sTb->wiiNormalBattle ? TBO_WII_NORMAL_TITLE : TBO_WII_CUSTOM_TITLE)
+                               : TBO_WII_BATTLE_TITLE,
                         62.0f + titleDx, 17.0f + titleDy,
                         62.0f + titleDx + 512.0f * titleScaleX,
                         17.0f + titleDy + 64.0f * titleScaleY,
@@ -2217,11 +2219,13 @@ static void Tb_DrawWiiVs(void) {
     IconWin_PortHeadingMotion(sTb->wiiBattleT, &iconDx, &iconDy, &iconAlpha,
                               &iconScaleX, &iconScaleY, &titleDx, &titleDy,
                               &titleAlpha, &titleScaleX, &titleScaleY);
-    if (sTb->wiiNormalBattle || PortTbo_WiiUseFontForArtwork(sTbWiiTextEdited[TB_WII_TX_CUSTOM_TITLE]))
+    if (PortTbo_WiiUseFontForArtwork(sTbWiiTextEdited[sTb->wiiNormalBattle ? TB_WII_TX_NORMAL_TITLE
+                                                                          : TB_WII_TX_CUSTOM_TITLE]))
         Tb_WiiTitleText(sTb->wiiNormalBattle ? TB_WII_TX_NORMAL_TITLE : TB_WII_TX_CUSTOM_TITLE,
                         62.0f + titleDx, 17.0f + titleDy, titleScaleX, titleScaleY, titleAlpha);
     else
-        Ps_SpriteScreen(TBO_WII_CUSTOM_TITLE, 62.0f + titleDx, 17.0f + titleDy,
+        Ps_SpriteScreen(sTb->wiiNormalBattle ? TBO_WII_NORMAL_TITLE : TBO_WII_CUSTOM_TITLE,
+                        62.0f + titleDx, 17.0f + titleDy,
                         62.0f + titleDx + 512.0f * titleScaleX,
                         17.0f + titleDy + 64.0f * titleScaleY,
                         0.0f, 0.0f, 1.0f, 1.0f, PS_PLAIN, titleAlpha);

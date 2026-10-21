@@ -83,7 +83,7 @@ if an older extraction has no `home-motion.bin`; the renderer logs which source 
 movie's five-frame highlight transition. The European archive has five DragonNe dialogue banks, decoded to
 `home-subtitles-{en,es,de,fr,it}.bin` with 44 lines each. It also supplies five sets of headings,
 option labels, and Create Player Name artwork, including its button captions, under
-`languages/{en,es,de,fr,it}/`. The Nintendo WFC Battle and Custom Battle
+`languages/{en,es,de,fr,it}/`. The Nintendo WFC Battle, Custom Battle, and Normal Battle
 headings, battle option labels, Fighting Point label, and VS record captions
 come from each language's section 1 pack under `languages/<locale>/section-01/`.
 Older extractions without those sheets fall back to the original English art.
@@ -122,7 +122,7 @@ animation after the fade. Pan does not appear or speak on this page. The battle 
 show neutral descriptions without character dialogue. The other lower Wii menu pages currently use the port's
 drawn UI over the decoded landscape.
 Focusing Ranking Battle or View Ranking shows the Wii Fighting Point panel on the left with `0000` as a placeholder.
-The Custom Battle page uses the extracted Wii title; Normal Battle draws its title with the menu heading style.
+The Custom Battle and Normal Battle pages use their extracted Wii titles at the same position and size.
 Both format pages use the battle page's clock, Giru, bars, cursor, and fade.
 The Nintendo WFC Battle, both format pages, and opponent-search page draw the
 extracted nebula and both halves of the shimmering star field inside the clock's

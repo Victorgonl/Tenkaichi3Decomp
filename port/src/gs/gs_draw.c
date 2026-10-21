@@ -703,6 +703,7 @@ static GsTex tbo_texture(uint32_t id) {
         else if (id == TBO_WII_BATTLE_POINT_LABEL) { wiiSection = 1; wiiResource = 3; wiiTexture = 41; }
         else if (id == TBO_WII_BATTLE_POINT_DIGITS) { wiiSection = 1; wiiResource = 3; wiiTexture = 5; }
         else if (id == TBO_WII_CUSTOM_TITLE) { wiiSection = 1; wiiResource = 4; wiiTexture = 2; }
+        else if (id == TBO_WII_NORMAL_TITLE) { wiiSection = 1; wiiResource = 4; wiiTexture = 3; }
         else if (id == TBO_WII_VS_PANELS) { wiiSection = 1; wiiResource = 3; wiiTexture = 20; }
         else if (id == TBO_WII_VS_MARK) { wiiSection = 1; wiiResource = 3; wiiTexture = 40; }
         else if (id == TBO_WII_VS_LINES) { wiiSection = 1; wiiResource = 3; wiiTexture = 21; }
@@ -717,7 +718,7 @@ static GsTex tbo_texture(uint32_t id) {
             id == TBO_WII_LABEL_SELECTED || id == TBO_WII_LABEL_IDLE ||
             id == TBO_WII_SETTINGS_LABEL_SELECTED || id == TBO_WII_SETTINGS_LABEL_IDLE ||
             id == TBO_WII_NAME_TITLE || id == TBO_WII_NAME_BUTTON_LABELS ||
-            id == TBO_WII_BATTLE_TITLE || id == TBO_WII_CUSTOM_TITLE ||
+            id == TBO_WII_BATTLE_TITLE || id == TBO_WII_CUSTOM_TITLE || id == TBO_WII_NORMAL_TITLE ||
             id == TBO_WII_BATTLE_LABEL_IDLE || id == TBO_WII_BATTLE_LABEL_SELECTED ||
             id == TBO_WII_BATTLE_POINT_LABEL || id == TBO_WII_VS_RECORD_LABELS) {
             MenuTranslation_Ensure();

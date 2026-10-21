@@ -89,6 +89,7 @@ static const u16 sTboSize[TBO_ART_COUNT][3] = {
     {256, 64, 0}, /* wii_battle_point_label */
     {128, 128, 0}, /* wii_battle_point_digits */
     {512, 64, 0}, /* wii_custom_title */
+    {512, 64, 0}, /* wii_normal_title */
     {256, 256, 0}, /* wii_vs_panels */
     {128, 64, 0}, /* wii_vs_mark */
     {512, 128, 0}, /* wii_vs_lines */
