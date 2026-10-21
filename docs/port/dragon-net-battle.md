@@ -2,15 +2,15 @@
 
 With the Wii assets extracted, the PS2 main-menu plate **Dragon Net Battle** opens the Wii mode's top-level choices
 in the port's screen mode. Without those assets, it opens the PC online window over the main menu as before.
-Nintendo WFC Battle opens its Wii battle menu. Custom Battle opens a matching page with **1 VS 1 Battle**,
+Nintendo WFC Battle opens its Wii battle menu. Normal Battle opens a matching page with **1 VS 1 Battle**,
 **Team Battle**, **10 DP Team Battle**, **15 DP Team Battle**, and **20 DP Team Battle**. Each entry opens
 the Wii opponent-search screen with its matching battle rules.
 When another player is found, the VS screen shows both player names and "Opponent found!" for about three seconds
 before the existing online session launcher starts the battle. Triangle cancels
-the search and returns to Custom Battle. Friend Battle keeps its original label and disabled appearance in
-the main battle menu; it does not open a screen. The Custom Battle option and all five submenu entries
-use their normal, enabled colors. The opponent-search screen alone uses the Custom Battle header.
-Normal Battle, Ranking Battle, View Ranking, and Battle Record remain unavailable.
+the search and returns to Normal Battle. Friend Battle keeps its original label and disabled appearance in
+the main battle menu; it does not open a screen. The Normal Battle option and all five submenu entries
+use their normal, enabled colors. The submenu and opponent-search screens use the Normal Battle header.
+Custom Battle, Ranking Battle, View Ranking, and Battle Record remain unavailable.
 By default, these entries use the existing direct lobby and battle session, with no matchmaking Worker, build
 key, or internet connection. The first copy on one computer hosts on UDP port 25443; a second copy on that
 computer joins over loopback. For two computers on a LAN, start the host with `BT3_LAN=host` and the other with

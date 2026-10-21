@@ -1189,7 +1189,7 @@ static void Tb_WiiUpdate(s32 live) {
             }
         } else {
             Snd_PlaySe(1, 1);
-            if (sTb->mode == TB_WII_BATTLE && *cur == 0) {
+            if (sTb->mode == TB_WII_BATTLE && *cur == 1) {
                 sTb->wiiCustomCur = 0;
                 sTb->wiiNextMode = TB_WII_CUSTOM;
                 ColorFade_StartOut(0, 0, 0, 0x14);
@@ -2096,7 +2096,7 @@ static void Tb_DrawWiiBattle(void) {
         s32 focusAlpha = Tb_WiiFocusAlpha(i, custom ? sTb->wiiCustomCur : sTb->wiiBattleCur);
         f32 v0 = (f32)i * 32.0f / 256.0f;
         f32 v1 = (f32)(i + 1) * 32.0f / 256.0f;
-        u32 tint = (custom || i == 0) ? PS_PLAIN : disabled;
+        u32 tint = (custom || i == 1) ? PS_PLAIN : disabled;
         Ps_SpriteScreen(TBO_WII_BATTLE_BAR_BLUE, x, y, x + 512.0f, y + 64.0f,
                         0.0f, 0.0f, 1.0f, 1.0f, tint, 0x80);
         if (focusAlpha > 0)
@@ -2124,13 +2124,13 @@ static void Tb_DrawWiiBattle(void) {
                         radarY - 32.0f * radarScale,
                         radarX + 32.0f * radarScale, radarY + 32.0f * radarScale,
                         0.0f, 0.0f, 1.0f, 1.0f,
-                        custom || sTb->wiiBattleCur == 0 ? PS_PLAIN : disabled,
+                        custom || sTb->wiiBattleCur == 1 ? PS_PLAIN : disabled,
                         0x80);
     }
     IconWin_PortHeadingMotion(sTb->wiiBattleT, &iconDx, &iconDy, &iconAlpha,
                               &iconScaleX, &iconScaleY, &titleDx, &titleDy,
                               &titleAlpha, &titleScaleX, &titleScaleY);
-    if (PortTbo_WiiUseFontForArtwork(sTbWiiTextEdited[custom ? TB_WII_TX_CUSTOM_TITLE : TB_WII_TX_BATTLE_TITLE]))
+    if (custom || PortTbo_WiiUseFontForArtwork(sTbWiiTextEdited[TB_WII_TX_BATTLE_TITLE]))
         Tb_WiiTitleText(custom ? TB_WII_TX_CUSTOM_TITLE : TB_WII_TX_BATTLE_TITLE,
                         62.0f + titleDx, 17.0f + titleDy, titleScaleX, titleScaleY, titleAlpha);
     else
@@ -2209,14 +2209,8 @@ static void Tb_DrawWiiVs(void) {
     IconWin_PortHeadingMotion(sTb->wiiBattleT, &iconDx, &iconDy, &iconAlpha,
                               &iconScaleX, &iconScaleY, &titleDx, &titleDy,
                               &titleAlpha, &titleScaleX, &titleScaleY);
-    if (PortTbo_WiiUseFontForArtwork(sTbWiiTextEdited[TB_WII_TX_CUSTOM_TITLE]))
-        Tb_WiiTitleText(TB_WII_TX_CUSTOM_TITLE, 62.0f + titleDx, 17.0f + titleDy,
-                        titleScaleX, titleScaleY, titleAlpha);
-    else
-        Ps_SpriteScreen(TBO_WII_CUSTOM_TITLE, 62.0f + titleDx, 17.0f + titleDy,
-                        62.0f + titleDx + 512.0f * titleScaleX,
-                        17.0f + titleDy + 64.0f * titleScaleY,
-                        0.0f, 0.0f, 1.0f, 1.0f, PS_PLAIN, titleAlpha);
+    Tb_WiiTitleText(TB_WII_TX_CUSTOM_TITLE, 62.0f + titleDx, 17.0f + titleDy,
+                    titleScaleX, titleScaleY, titleAlpha);
     Ps_SpriteScreen(TBO_WII_CREST, 45.0f + iconDx - 32.0f * iconScaleX,
                     48.0f + iconDy - 32.0f * iconScaleY,
                     45.0f + iconDx + 32.0f * iconScaleX,
@@ -2792,7 +2786,7 @@ static char *Tb_Help(void) {
 /* Each page's title (by TB_ mode), as its heading shows it and the screen reader says it. */
 static char *sTbTitle[17] = {"Tenkaichi Budokai Online", "Create Room", "Join Room", "Searching", "Profile", "Profile", "Quick Match",
                              "Train While Waiting", "Tenkaichi Budokai Online", "Dragon Net Battle", "Nintendo WFC Battle",
-                             "Manage Friends", "User Settings", "View Ranking", "Create Player Name", "Custom Battle", "Custom Battle"};
+                             "Manage Friends", "User Settings", "View Ranking", "Create Player Name", "Normal Battle", "Normal Battle"};
 static void Tb_SetWiiTitles(void) {
     sTbTitle[TB_WII_HOME] = sTbWiiText[TB_WII_TX_HOME_TITLE];
     sTbTitle[TB_WII_BATTLE] = sTbWiiText[TB_WII_TX_BATTLE_TITLE];

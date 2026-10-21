@@ -41,7 +41,7 @@ static const struct { const char *id, *original; } kPortText[TR_PORT_TEXT_COUNT]
     {"dragon-net/battle/ranking", "Ranking Battle"},
     {"dragon-net/battle/view-ranking", "View Ranking"},
     {"dragon-net/battle/record", "Battle Record"},
-    {"dragon-net/custom/title", "Custom Battle"},
+    {"dragon-net/normal/title", "Normal Battle"},
     {"dragon-net/custom/one-v-one", "1 VS 1 Battle"},
     {"dragon-net/custom/team", "Team Battle"},
     {"dragon-net/custom/team-10-dp", "10 DP Team Battle"},
