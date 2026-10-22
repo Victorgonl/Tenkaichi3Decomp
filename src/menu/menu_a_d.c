@@ -409,10 +409,31 @@ void ModeMenu_Draw(void) {
     Flash_ClipSetFlags(flash, &ref, 2, (gModeMenu->flags >> 5) & 1);
 
     for (i = 0; i < MODEMENU_FLASH_NUM; i++) {
+#ifdef PORT
+        extern void Port_FlashDrawMenuArt(void *movie, s32 screen, s32 visible);
+        Port_FlashDrawMenuArt(&gModeMenu->flash[i], 6, 1);
+#else
         Flash_Draw(&gModeMenu->flash[i]);
+#endif
     }
+#ifdef PORT
+    {
+        extern s32 Port_TitleMainChars43(void);
+        extern s32 Port_Menus43(void);
+        extern void Port_GsMarker(s32 effect);
+        extern void Port_MsgWinDraw43(s32 line);
+        s32 art43 = Port_TitleMainChars43() && !Port_Menus43();
+        /* Episode TextBox callbacks queue glyphs; flush them with the same
+           centre pivot as their scrolling panel, before drawing guide dialogue. */
+        if (art43) Port_GsMarker(0x19);
+        Font_FlushAll();
+        if (art43) Port_GsMarker(0x13);
+        Port_MsgWinDraw43(gModeMenu->voiceLine);
+    }
+#else
     Font_FlushAll();
     MsgWin_Draw(0, 0, gModeMenu->voiceLine);
+#endif
 }
 
 /*

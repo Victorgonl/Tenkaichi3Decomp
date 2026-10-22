@@ -255,9 +255,16 @@ void Movie_PlayOpening(void) {
 
 /* Plays the ending movie. */
 void Movie_PlayEnding(void) {
+#ifdef PORT
+    extern void Port_Credits43Set(s32 on);
+    Port_Credits43Set(1);
+#endif
     Movie_Open("zs3used.pss", "zs3used.adx");
     Movie_Run();
     Movie_Close();
+#ifdef PORT
+    Port_Credits43Set(0);
+#endif
 }
 
 /* The player's frame loop: decodes and shows one picture per frame until the stream ends or START skips it. */

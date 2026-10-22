@@ -18,8 +18,9 @@ extern s32 strncmp(const char *a, const char *b, u32 n);
 extern void Port_GsMarker(s32 effect);
 extern s32 Port_TitleMainChars43(void);
 extern s32 Port_Menus43(void);
+extern s32 Port_AspectMilli(void);
 static s32 sMenuArtDrawDepth;
-static s32 sMenuArtScreen; /* 1: title; 2: main; 3: shared header; 4: dialog; 0: other movies */
+static s32 sMenuArtScreen; /* 1: title; 2: main; 3: header; 4: dialog; 5: saga; 6: episodes; 7: story result; 8: GT scenery */
 static s32 sTitleMenuEntriesVisible;
 
 /* Return the anchor marker for each foreground clip tree. Keep a whole option
@@ -53,6 +54,41 @@ static s32 FlashClip_MenuArtMarker(const char *name) {
             return 0x1A;
         }
     }
+    if (sMenuArtScreen == 5) {
+        /* Left-entering groups must keep x=0 at the screen edge throughout
+           their animation, including every backing, label and badge. */
+        if (strncmp(name, "mc_menu_plate_", 14) == 0 ||
+            strncmp(name, "mc_level_plate_", 15) == 0 ||
+            strncmp(name, "mc_scenario_", 12) == 0 ||
+            strcmp(name, "mc_icon_new") == 0 || strcmp(name, "mc_saru") == 0) return 0x1A;
+        if (strncmp(name, "mc_tassei_num_", 14) == 0) return 0x1B;
+        if (strcmp(name, "mc_guide_gokuu") == 0 || strncmp(name, "mc_guide_0", 10) == 0) {
+            return 0x19;
+        }
+        if (strcmp(name, "mc_yajirusi_left") == 0) return 0x1A;
+        if (strcmp(name, "mc_yajirusi_right") == 0) return 0x1A;
+    }
+    if (sMenuArtScreen == 6) {
+        /* Preview mask, picture, frame, battle title and badges share the list's
+           left edge. Keep guides entering from beyond the right edge. */
+        if (strncmp(name, "mc_menu_plate_", 14) == 0 ||
+            strcmp(name, "mc_battle_mask") == 0 || strcmp(name, "mc_image_l_1") == 0 ||
+            strcmp(name, "mc_battle_text_1") == 0 || strcmp(name, "mc_clear") == 0 ||
+            strncmp(name, "mc_yajirusi_", 12) == 0) return 0x1A;
+        if (strncmp(name, "mc_guide_0", 10) == 0) return 0x1B;
+        if (strcmp(name, "mc_scenario_text") == 0 || strcmp(name, "mc_scenario") == 0 ||
+            strcmp(name, "mc_episode_next") == 0 ||
+            strncmp(name, "mc_episode_text_", 16) == 0) return 0x19;
+    }
+    if (sMenuArtScreen == 7) {
+        if (strncmp(name, "mc_chara_", 9) == 0) return 0x1B;
+        if (strncmp(name, "mc_point_text_", 14) == 0 ||
+            strncmp(name, "mc_get_point_", 13) == 0 ||
+            strncmp(name, "mc_total_point_", 15) == 0) return 0x1A;
+        if (strncmp(name, "mc_result_text_", 15) == 0 ||
+            strcmp(name, "mc_battle_text") == 0) return 0x1A;
+    }
+    if (sMenuArtScreen == 8 && strcmp(name, "mc_gil") == 0) return 0x1A;
     return 0;
 }
 
@@ -68,6 +104,22 @@ static s32 FlashShape_MenuArtMarker(s32 image) {
     }
     if (sMenuArtScreen == 3 && image >= 0) {
         return 0x1A; /* unparented parts of the heading */
+    }
+    if (sMenuArtScreen == 5) {
+        /* Shared saga/difficulty frame, saga label bar, difficulty heading. */
+        if (image == 37 || image == 76 || image == 82) return 0x1A;
+        /* Achievement caption and panel (including %) match the digit clips. */
+        if (image == 77 || image == 78) return 0x1B;
+    }
+    if (sMenuArtScreen == 6) {
+        /* Root shapes: saga title backing, thumbnail strip, preview frame;
+           the mirrored halves of the scrolling story panel. */
+        if (image == 6 || image == 7) return 0x1A;
+        if (image == 5 || image == 38) return 0x19;
+    }
+    if (sMenuArtScreen == 7) {
+        if (image == 3) return 0x1A; /* episode-title backing */
+        if (image == 5 || image == 7) return 0x1A; /* point label/number backings */
     }
     return 0;
 }
@@ -670,6 +722,16 @@ void FlashSlot_Draw(FlashSlot *slot, FlashProp *parent, Flash *flash) {
     s32 j;
 #ifdef PORT
     s32 menuArt = 0;
+    if (clip != NULL && sMenuArtScreen == 5) {
+        const char *name = clip->name;
+        s32 phase = sTitleMenuEntriesVisible; /* bit 0 menu, bit 1 saga, bit 2 difficulty */
+        if ((strncmp(name, "mc_menu_plate_", 14) == 0 && !(phase & 1)) ||
+            ((strncmp(name, "mc_scenario_", 12) == 0 || strncmp(name, "mc_yajirusi_", 12) == 0 ||
+              strcmp(name, "mc_icon_new") == 0) && !(phase & 2)) ||
+            (strncmp(name, "mc_level_plate_", 15) == 0 && !(phase & 4))) {
+            return;
+        }
+    }
     if (clip != NULL && sMenuArtScreen == 1 && !sTitleMenuEntriesVisible &&
         strncmp(clip->name, "mc_menu_plate_", 14) == 0) {
         /* These clips are staged before fl_menu_in. Scaling would bring their
@@ -684,11 +746,53 @@ void FlashSlot_Draw(FlashSlot *slot, FlashProp *parent, Flash *flash) {
     if (clip != NULL && (clip->flags & FLASH_CLIP_VISIBLE)) {
 #ifdef PORT
         menuArt = FlashClip_MenuArtMarker(clip->name);
+        if (sMenuArtScreen == 6 && strcmp(clip->name, "mc_battle_text_1") == 0 &&
+            clip->prop.mtx.m[2] > -35.0f) {
+            /* The movie hides the title, moves it from x=-65 (preview)
+               to x=-5 (story panel), then fades it back in. Follow that
+               placement so the story title shares its panel's centre.
+               Use the midpoint: decoded -65 can round slightly above -65,
+               which must not select the story anchor over the preview. */
+            menuArt = 0x19;
+        }
         if (menuArt && sMenuArtDrawDepth++ == 0) {
             Port_GsMarker(menuArt);
         }
 #endif
         prop = clip->prop;
+#ifdef PORT
+        if (sMenuArtScreen == 7 && strncmp(clip->name, "mc_chara_", 9) == 0 &&
+            Port_AspectMilli() > 1333) {
+            /* Preserve the left-side entrance, blending into the right
+               anchor only as the original illustration moves across. */
+            f32 parked = strcmp(clip->name, "mc_chara_1") == 0 ? -327.0f :
+                         strcmp(clip->name, "mc_chara_2") == 0 ? -240.0f :
+                         strcmp(clip->name, "mc_chara_3") == 0 ? -257.0f : -295.0f;
+            f32 progress = (prop.mtx.m[2] - parked) / 595.0f;
+            if (progress < 0.0f) progress = 0.0f;
+            if (progress > 1.0f) progress = 1.0f;
+            prop.mtx.m[2] -= 512.0f * ((f32)Port_AspectMilli() / 1333.333f - 1.0f) * (1.0f - progress);
+        }
+        if (sMenuArtScreen == 6 && Port_AspectMilli() > 1333 &&
+            strncmp(clip->name, "mc_guide_0", 10) == 0 && clip->name[11] == '\0') {
+            FlashClip *preview = FlashClipList_FindByName(flash->clips, "mc_battle_mask");
+            if (preview != NULL) {
+                f32 scale = 1333.333f / (f32)Port_AspectMilli();
+                /* The visible preview is 256 units wide inside its texture.
+                   Find the gap in rendered page coordinates, then undo the
+                   guide's right-anchor transform to position its centre. */
+                f32 previewRight = (preview->prop.mtx.m[2] + 256.0f) * scale;
+                f32 centre = (previewRight + 512.0f) * 0.5f;
+                f32 target = 512.0f + (centre - 512.0f) / scale - 128.0f;
+                f32 settled = strcmp(clip->name, "mc_guide_06") == 0 ? 312.0f : 314.0f;
+                f32 parked = strcmp(clip->name, "mc_guide_06") == 0 ? 518.0f : 520.0f;
+                f32 progress = (parked - prop.mtx.m[2]) / (parked - settled);
+                if (progress < 0.0f) progress = 0.0f;
+                if (progress > 1.0f) progress = 1.0f;
+                prop.mtx.m[2] += (target - settled) * progress;
+            }
+        }
+#endif
         if (parent != NULL) {
             prop.flags |= parent->flags & (FLASH_OV_MASK | FLASH_OV_MASK_SET);
             for (i = 0; i < 3; i++) {
@@ -1513,6 +1617,13 @@ void FlashShape_Draw(FlashShape *shape, FlashProp *prop, Flash *flash) {
         if (sMenuArtScreen == 1 && !sTitleMenuEntriesVisible && (rec.image == 6 || rec.image == 9)) {
             continue; /* title option labels are not drawn before fl_menu_in */
         }
+        if (sMenuArtScreen == 5 &&
+            ((rec.image == 37 && !(sTitleMenuEntriesVisible & 2)) ||
+             (rec.image == 76 && !(sTitleMenuEntriesVisible & 6)) ||
+             (rec.image == 82 && !(sTitleMenuEntriesVisible & 4)))) {
+            /* Image 76 is reused by BOTH saga and difficulty timelines. */
+            continue;
+        }
 #endif
         if (rec.image >= 0) {
             img = Flash_GetRecord(flash->data, 3, rec.image);
@@ -1542,13 +1653,26 @@ void FlashShape_Draw(FlashShape *shape, FlashProp *prop, Flash *flash) {
         quad.rgba[3] = rec.rgba & 0xFF;
         FlashDraw_TransformQuad(pq, &shape->mtx, &shape->cx, prop, flash->ofs);
 #ifdef PORT
+        markImage = !sMenuArtDrawDepth ? FlashShape_MenuArtMarker(rec.image) : 0;
+        if (sMenuArtScreen == 5 && (sMenuArtDrawDepth || markImage)) {
+            s32 left = 1;
+            s32 right = 1;
+            s32 corner;
+
+            /* The movie parks later saga/level pieces beyond the original 4:3 page.
+               Narrowing them about an anchor would otherwise pull them into view early. */
+            for (corner = 0; corner < 4; corner++) {
+                if (pq->pt[corner][0] >= 0.0f) left = 0;
+                if (pq->pt[corner][0] <= 512.0f) right = 0;
+            }
+            if (left || right) continue;
+        }
         /* Dialog texture 0 is the screen dimmer (Dialog_Draw can hide it
            independently). It must fill the wide page, unlike the window. */
         fullWidthDialogDim = sMenuArtScreen == 4 && rec.image == 0;
         if (fullWidthDialogDim) {
             Port_GsMarker(0x13);
         }
-        markImage = !sMenuArtDrawDepth ? FlashShape_MenuArtMarker(rec.image) : 0;
         if (markImage) {
             Port_GsMarker(markImage);
         }

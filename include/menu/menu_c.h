@@ -174,6 +174,11 @@ typedef struct HistSel {
 #define HISTSEL_FIRST_VISIT 0x10  /* set by Init (unlockFlags 0x80 clear): the script starts at step 1 */
 #define HISTSEL_EVENT 0x20        /* set by Init (HistSel_RollEvent picked a guest): step 651 */
 #define HISTSEL_COMPLETE 0x40     /* set by Init (100 % and unlockFlags 0x100 clear): step 1151 */
+#ifdef PORT
+#define HISTSEL_ART_MENU 0x80      /* fl_menu_in has started */
+#define HISTSEL_ART_SCENARIO 0x100 /* fl_scenario_in has started */
+#define HISTSEL_ART_LEVEL 0x200    /* fl_level_in has started */
+#endif
 
 extern HistSel *gHistSel; /* 0x3B12FC */
 

@@ -328,9 +328,21 @@ void HistResult_Draw(void) {
     Flash_ClipSetUv(flash, &ref, &uv);
     Flash_ClipSetTex(flash, &ref, gProgress->subMenuItem / 4);
     for (i = 0; i < HISTRESULT_FLASH_NUM; i++) {
+#ifdef PORT
+        extern void Port_FlashDrawMenuArt(void *movie, s32 screen, s32 visible);
+        Port_FlashDrawMenuArt(&gHistResult->flash[i], 7, 1);
+#else
         Flash_Draw(&gHistResult->flash[i]);
+#endif
     }
+#ifdef PORT
+    {
+        extern void Port_GetWinDraw43(void);
+        Port_GetWinDraw43();
+    }
+#else
     GetWin_Draw();
+#endif
 }
 
 /* Steps the movie; when the "fl_out" animation has ended, leaves. */

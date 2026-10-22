@@ -98,6 +98,9 @@ void HistGuide_Update(HistSel *menu, s32 *result) {
     case 11:
         menu->script = 0;
         Flash_GotoLabel(&menu->flash[0], "fl_menu_in", 1);
+#ifdef PORT
+        menu->flags |= HISTSEL_ART_MENU;
+#endif
         menu->guide = 8;
         menu->voiceLine = menu->cursor[0] + 5;
         HistSel_PlayVoice();
@@ -123,6 +126,9 @@ void HistGuide_Update(HistSel *menu, s32 *result) {
     case 1159:
         menu->script = 0;
         Flash_GotoLabel(&menu->flash[0], "fl_menu_in", 1);
+#ifdef PORT
+        menu->flags |= HISTSEL_ART_MENU;
+#endif
         menu->guide = 8;
         menu->voiceLine = menu->cursor[0] + 5;
         HistSel_PlayVoice();
@@ -430,6 +436,9 @@ void HistGuide_Update(HistSel *menu, s32 *result) {
     case 701:
         menu->script = 0;
         Flash_GotoLabel(&menu->flash[0], "fl_menu_in", 1);
+#ifdef PORT
+        menu->flags |= HISTSEL_ART_MENU;
+#endif
         menu->guest = -1;
         menu->guide = 8;
         menu->voiceLine = menu->cursor[0] + 5;

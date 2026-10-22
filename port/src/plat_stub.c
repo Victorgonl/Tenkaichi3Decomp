@@ -575,6 +575,10 @@ int Port_Menus43(void) {
 void Port_Menus43Set(int on) {
     sMenus43 = on != 0;
 }
+PORT_HOST static int sCredits43;
+void Port_Credits43Set(int on) {
+    sCredits43 = on != 0;
+}
 int Port_PageAspectMilli(void) {
-    return gPortMenuMode && Port_Menus43() ? 1333 : Port_AspectMilli();
+    return sCredits43 || (gPortMenuMode && Port_Menus43()) ? 1333 : Port_AspectMilli();
 }

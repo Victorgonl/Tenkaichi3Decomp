@@ -21,6 +21,9 @@ extern void Font_FlushAll(void);
 #ifdef PORT
 extern s32 gPortMainMenuArtWindow;
 extern void Port_GsMarker(s32 effect);
+extern s32 Port_TitleMainChars43(void);
+extern s32 Port_Menus43(void);
+static s32 sPortMsgWinTextMarker;
 #endif
 
 /* text box module, after 0x2600B0 (not decompiled) */
@@ -63,6 +66,9 @@ void MsgWin_Draw(s32 unused0, s32 unused1, s32 line) {
     FlashRef ref;
     Flash *flash;
     s32 i;
+#ifdef PORT
+    s32 textMarker = sPortMsgWinTextMarker ? sPortMsgWinTextMarker : (gPortMainMenuArtWindow ? 0x1A : 0);
+#endif
 
     Flash_Advance(gMsgWin->flash);
     flash = gMsgWin->flash;
@@ -74,17 +80,29 @@ void MsgWin_Draw(s32 unused0, s32 unused1, s32 line) {
         Flash_Draw(&gMsgWin->flash[i]);
     }
 #ifdef PORT
-    if (gPortMainMenuArtWindow) {
-        Port_GsMarker(0x1A); /* left-anchor only the flushed description glyphs, not the window backing */
+    if (textMarker) {
+        Port_GsMarker(textMarker); /* scale the flushed glyphs about the window's chosen edge */
     }
 #endif
     Font_FlushAll();
 #ifdef PORT
-    if (gPortMainMenuArtWindow) {
+    if (textMarker) {
         Port_GsMarker(0x13);
     }
 #endif
 }
+
+#ifdef PORT
+/* Opt in left-anchored dialogue text without changing other users of MsgWin.
+   The movie's slide direction does not determine the text's layout anchor. */
+void Port_MsgWinDraw43(s32 line) {
+    s32 old = sPortMsgWinTextMarker;
+    sPortMsgWinTextMarker = Port_TitleMainChars43() && !Port_Menus43()
+        ? 0x1A : 0;
+    MsgWin_Draw(0, 0, line);
+    sPortMsgWinTextMarker = old;
+}
+#endif
 
 /* Starts the slide-in animation of the window's side. */
 void MsgWin_Open(void) {

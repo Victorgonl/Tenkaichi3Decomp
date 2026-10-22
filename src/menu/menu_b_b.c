@@ -165,6 +165,14 @@ void ModeBg_Draw(void) {
         case 7:
             break;
         }
-        Flash_Draw(&gModeBg->flash[0]);
+#ifdef PORT
+        if (gProgress->subMenu == 5) {
+            extern void Port_FlashDrawMenuArt(void *movie, s32 screen, s32 visible);
+            Port_FlashDrawMenuArt(&gModeBg->flash[0], 8, 1);
+        } else
+#endif
+        {
+            Flash_Draw(&gModeBg->flash[0]);
+        }
     }
 }

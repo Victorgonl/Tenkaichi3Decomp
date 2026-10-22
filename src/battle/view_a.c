@@ -244,6 +244,19 @@ void GetWin_Draw(void) {
     Font_FlushAll();
 }
 
+#ifdef PORT
+/* Story results opt in the complete reward window, including deferred glyphs. */
+void Port_GetWinDraw43(void) {
+    extern s32 Port_TitleMainChars43(void);
+    extern s32 Port_Menus43(void);
+    extern void Port_GsMarker(s32 effect);
+    s32 art43 = Port_TitleMainChars43() && !Port_Menus43();
+    if (art43) Port_GsMarker(0x1A);
+    GetWin_Draw();
+    if (art43) Port_GsMarker(0x13);
+}
+#endif
+
 /* Plays the opening animation and its sound. */
 void GetWin_Open(void) {
     Flash_GotoLabel(gGetWin->flash, "fl_get_in", 1);

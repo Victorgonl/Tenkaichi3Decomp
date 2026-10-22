@@ -477,11 +477,25 @@ void HistSel_Draw(void) {
     }
 
     for (i = 0; i < HISTSEL_FLASH_NUM; i++) {
+#ifdef PORT
+        {
+            extern void Port_FlashDrawMenuArt(void *movie, s32 screen, s32 titleMenuVisible);
+            Port_FlashDrawMenuArt(&gHistSel->flash[i], 5, (gHistSel->flags >> 7) & 7);
+        }
+#else
         Flash_Draw(&gHistSel->flash[i]);
+#endif
     }
     IconWin_Draw();
     MsgWin_SetText(gHistSel->msgText[gHistSel->guide]);
+#ifdef PORT
+    {
+        extern void Port_MsgWinDraw43(s32 line);
+        Port_MsgWinDraw43(gHistSel->voiceLine);
+    }
+#else
     MsgWin_Draw(0, 0, gHistSel->voiceLine);
+#endif
 }
 
 /* Sends the plate under a cursor to a label: kind 0 the menu plate, kind 2 the level plate. */
@@ -520,6 +534,12 @@ void HistSel_Update(void) {
     for (i = 0; i < HISTSEL_FLASH_NUM; i++) {
         Flash_Advance(&gHistSel->flash[i]);
     }
+#ifdef PORT
+    if (gHistSel->focus == 0 && (gHistSel->flash[0].flags & MFLASH_PAD)) {
+        /* The exit timeline has finished; the next visit must stage its panels again. */
+        gHistSel->flags &= ~(HISTSEL_ART_SCENARIO | HISTSEL_ART_LEVEL);
+    }
+#endif
     if (gHistSel->flash[0].se & 1) {
         Snd_PlaySe(2, 0xF);
     }
@@ -568,6 +588,9 @@ void HistSel_Input(s32 *result) {
             switch (gHistSel->cursor[gHistSel->focus]) {
             case 0:
                 Flash_GotoLabel(&gHistSel->flash[0], "fl_scenario_in", 1);
+#ifdef PORT
+                gHistSel->flags |= HISTSEL_ART_SCENARIO;
+#endif
                 if (MSAVE->unlockFlags & MUNLOCK_HIST_NEW_SAGA) {
                     MSAVE->unlockFlags &= ~MUNLOCK_HIST_NEW_SAGA;
                     gHistSel->voiceLine = 0x2A;
@@ -579,6 +602,9 @@ void HistSel_Input(s32 *result) {
                 break;
             case 1:
                 Flash_GotoLabel(&gHistSel->flash[0], "fl_level_in", 1);
+#ifdef PORT
+                gHistSel->flags |= HISTSEL_ART_LEVEL;
+#endif
                 gHistSel->cursor[2] = MSAVE->level;
                 HistSel_PlateGoto(0, 2, "fl_on_start");
                 gHistSel->voiceLine = gHistSel->cursor[2] + 7;
@@ -752,6 +778,9 @@ s32 HistSel_Run(s32 section) {
                     gHistSel->script = 651;
                 } else {
                     Flash_GotoLabel(&gHistSel->flash[0], "fl_menu_in", 1);
+#ifdef PORT
+                    gHistSel->flags |= HISTSEL_ART_MENU;
+#endif
                     gHistSel->guide = 8;
                     gHistSel->talker = 0;
                     gHistSel->voiceLine = Rand_Range(5) + 14;
