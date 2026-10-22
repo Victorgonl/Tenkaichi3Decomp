@@ -98,7 +98,9 @@
     X(TBO_WII_VS_PLAYERS, "wii_vs_players") \
     X(TBO_WII_VS_DIGITS, "wii_vs_digits") \
     X(TBO_WII_VS_WINS_DIGITS, "wii_vs_wins_digits") \
-    X(TBO_WII_VS_RECORD_LABELS, "wii_vs_record_labels")
+    X(TBO_WII_VS_RECORD_LABELS, "wii_vs_record_labels") \
+    X(TBO_WII_DISCONNECT_GIRU, "wii_disconnect_giru") \
+    X(TBO_WII_DISCONNECT_GIRU_EYE, "wii_disconnect_giru_eye")
 
 #define TBO_ART_ENUM(id, name) id,
 enum { TBO_ART_LIST(TBO_ART_ENUM) TBO_ART_COUNT };

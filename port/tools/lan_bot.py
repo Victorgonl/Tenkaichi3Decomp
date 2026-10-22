@@ -60,7 +60,8 @@ def main() -> None:
             print(line, file=sys.stderr, end="", flush=True)
 
     def stop_game() -> None:
-        nonlocal process
+        nonlocal process, current_request
+        current_request = None
         if process is None:
             return
         if process.poll() is None:
@@ -114,7 +115,7 @@ def main() -> None:
         else:
             print(f"Headless bot running in {value} mode at CPU level {selected_level}, joining {args.host}.", flush=True)
 
-    help_text = "Commands: 1v1, team, dp10, dp15, dp20 (LAN); host MODE (generate code); join CODE; level 1-5; exit"
+    help_text = "Commands: 1v1, team, dp10, dp15, dp20 (LAN); host MODE (generate code); join CODE; level 1-5; exit (disconnect); quit"
     print(help_text, flush=True)
     try:
         if args.join_code:
@@ -128,7 +129,11 @@ def main() -> None:
                 command = input("bot> ").strip().lower()
             except EOFError:
                 break
-            if command in ("exit", "quit"):
+            if command == "exit":
+                stop_game()
+                print("Disconnected. Enter a mode, host MODE, or join CODE to connect again.", flush=True)
+                continue
+            if command == "quit":
                 break
             words = command.split()
             if not words:

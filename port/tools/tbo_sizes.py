@@ -36,6 +36,8 @@ WII = {
     "wii_settings_title": (4, 3),
 }
 WII_NESTED = {
+    "wii_disconnect_giru": (10, 0, 1),
+    "wii_disconnect_giru_eye": (10, 0, 2),
     "wii_name_title": (13, 2, 4),
     "wii_name_button_labels": (13, 2, 1),
     "wii_name_keyboard": (13, 1, 0),

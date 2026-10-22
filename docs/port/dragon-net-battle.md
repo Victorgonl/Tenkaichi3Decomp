@@ -10,6 +10,9 @@ When another player is found, the VS screen shows both player names and "Opponen
 before the existing online session launcher starts the battle. Triangle cancels
 the search and returns to the battle page it came from. Friend Battle is enabled and opens **Host Battle** and
 **Join Battle**. Hosting offers all five battle formats, then shows a six-character room code on the Wii VS screen.
+If the other player leaves during a match or the connection is lost, the restored Battle Net page shows a
+dismissible memory-card style dialog with the game's native dialog font. The separate small Wii Giru sprite bobs
+below it with a flashing eye; Cross or Triangle closes the message.
 Joining accepts that code through the same Wii Data Center keyboard used for Create Player Name, limited to six
 letters or numbers, and opens the same VS screen. When the connection succeeds, both
 names remain on screen for about three seconds before battle; a failed join returns to the Friend Battle menu.
@@ -30,7 +33,8 @@ For a local CPU opponent, start the human game with `BT3_LAN=host` and choose a 
 terminal, run `python3 port/tools/lan_bot.py`, then enter `1v1`, `team`, `dp10`, `dp15`, or `dp20` at its prompt.
 Use `level 1` through `level 5` to set the game's CPU difficulty (3 by default), or enter a mode and level together,
 such as `1v1 5`. Changing the level while the bot is running restarts it, so choose the level before a match.
-Enter `exit` to close the bot's game and quit; entering another mode restarts the bot in that mode. You can also
+Enter `exit` to disconnect the bot while keeping its command prompt open. Enter `quit` to close the bot script;
+entering another mode restarts the bot in that mode. You can also
 pass an initial mode and level, such as `python3 port/tools/lan_bot.py 1v1 --level 5`. The bot's game runs without a window or sound.
 For Friend Battle room codes, enter `host 1v1`, `host team`, `host dp10`, `host dp15`, or `host dp20` in the bot
 prompt. The bot prints the generated code; enter it in the game's **Friend Battle > Join Battle** screen.
@@ -39,6 +43,8 @@ These commands also work at startup as `python3 port/tools/lan_bot.py 1v1 --gene
 `python3 port/tools/lan_bot.py --join-code ABC123`. Room codes require the configured matchmaking service.
 For the direct LAN commands, it joins only the
 matching LAN queue, picks a random available character on the select screen, and uses the game's CPU AI in battle.
+In Team Battle, the bot randomly picks different characters to fill all five slots. In DP Team Battle, it randomly
+picks characters that fit the remaining budget until the team is full or no eligible character fits.
 If the bot wins, it selects **Return to Character Select** and confirms **Yes** in the result menu, so the session
 can continue with another character selection.
 Use `--host ADDRESS` when the human game is on another machine, `--game PATH` to select a different built executable,
@@ -161,6 +167,8 @@ With an ISO or RVZ input, the script extracts the second archive automatically. 
 the DragonNe pack's BPE sections, writes native resource binaries and the GX I4/C4/C8 sheets as PNG, and makes
 `gamedata/dragon-net-battle/index.html` for inspection. All output is ignored by Git. The GX palettes use split G/R and A/B
 planes; the extractor reconstructs RGBA colors and the correct width and height from the texture headers.
+It also walks nested resource packs, including the small disconnect-dialog Giru and eye in section 0, resource 10,
+part 0, and indexes those sheets alongside the direct textures.
 
 The top-level Wii menu uses the extracted color art directly: eight landscape tiles, Pan, Giru, clouds, crest,
 title, radar, bars, and both states of the three option labels. The cursor selects the original gold or blue

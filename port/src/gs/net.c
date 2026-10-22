@@ -1271,10 +1271,13 @@ static void sample_local(unsigned tick) {
 
 #define QUIET_NS 6000000000ull /* this long without the input the game is waiting for: the other player is gone */
 
+/* Kept outside the game snapshot so the restored Battle Net screen can show why a session ended. */
+static int sEndReason; /* 1: peer left; 2: connection lost or session failed */
+
 static void ended(const char *why, unsigned tick) {
     fprintf(stderr, "bt3: net: %s (blank %u)\n", why, tick);
-    Port_UiNotice(why);
     if (sSession) {
+        sEndReason = sGone == 1 ? 1 : 2;
         Port_NetLeave(); /* back to the game as it normally is */
     }
     exit(2);
@@ -1830,6 +1833,12 @@ static int sSessionsEnded;
 
 int Port_NetSessionsEnded(void) {
     return sSessionsEnded;
+}
+
+int Port_NetTakeEndReason(void) {
+    int reason = sEndReason;
+    sEndReason = 0;
+    return reason;
 }
 
 void Port_NetSessionEnd(void) {

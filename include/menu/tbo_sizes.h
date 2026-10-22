@@ -97,6 +97,8 @@ static const u16 sTboSize[TBO_ART_COUNT][3] = {
     {128, 128, 0}, /* wii_vs_digits */
     {128, 128, 0}, /* wii_vs_wins_digits */
     {128, 128, 0}, /* wii_vs_record_labels */
+    {128, 128, 0}, /* wii_disconnect_giru */
+    {32, 32, 0}, /* wii_disconnect_giru_eye */
 };
 
 /* First-row alpha bounds, x0/y0 inclusive and x1/y1 exclusive, in the Wii label sheets. */

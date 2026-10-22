@@ -2,7 +2,7 @@
   "schema_version": 1,
   "labels_version": 2,
   "translation_version": 1,
-  "labels_count": 34,
+  "labels_count": 36,
   "locale": "en",
   "name": "English",
   "order": 1,
@@ -18,6 +18,14 @@
     "net/rival_here": {
       "original": "Your rival \"{name}\" is here! The match begins.",
       "text": "Your rival \"{name}\" is here! The match begins."
+    },
+    "net/player_left": {
+      "original": "The other player left the match.",
+      "text": "The other player left the match."
+    },
+    "net/connection_lost": {
+      "original": "Connection lost.",
+      "text": "Connection lost."
     },
     "dragon-net/home/title": {
       "original": "Dragon Net Battle",

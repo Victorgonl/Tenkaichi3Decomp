@@ -25,7 +25,7 @@
 #endif
 
 enum { TR_MAX_FILE = 1024 * 1024, TR_MAX_ROWS = 640, TR_MAX_GROUPS = 160 };
-enum { TR_PORT_TEXT_COUNT = 34, TR_PORT_TEXT_MAX = 1024, TR_PORT_MAX_FILE = 64 * 1024 };
+enum { TR_PORT_TEXT_COUNT = 36, TR_PORT_WII_TEXT_COUNT = 31, TR_PORT_TEXT_MAX = 1024, TR_PORT_MAX_FILE = 64 * 1024 };
 static const struct { const char *id, *original; } kPortText[TR_PORT_TEXT_COUNT] = {
     {PORT_TEXT_QUIT_CONFIRM, "Close the game?\nUnsaved progress will be lost."},
     {PORT_TEXT_NET_CONNECTING, "Connecting to your rival..."},
@@ -60,7 +60,9 @@ static const struct { const char *id, *original; } kPortText[TR_PORT_TEXT_COUNT]
     {"dragon-net/name/title", "Create Player Name"},
     {"dragon-net/custom/title", "Custom Battle"},
     {"dragon-net/friend/host", "Host Battle"},
-    {"dragon-net/friend/join", "Join Battle"}
+    {"dragon-net/friend/join", "Join Battle"},
+    {"net/player_left", "The other player left the match."},
+    {"net/connection_lost", "Connection lost."}
 };
 typedef struct TrPortCatalog {
     char text[TR_PORT_TEXT_COUNT][TR_PORT_TEXT_MAX];
@@ -947,13 +949,24 @@ const char *MenuTranslation_PortText(const char *id) {
 /* Game-side Wii menu strings are copied into its own memory at screen entry. */
 int PortTbo_WiiTextCopy(int index, char *out, int capacity) {
     const char *original, *resolved;
-    if (index < 0 || index >= TR_PORT_TEXT_COUNT - 3 || !out || capacity < 1) return 0;
+    if (index < 0 || index >= TR_PORT_WII_TEXT_COUNT || !out || capacity < 1) return 0;
     original = kPortText[index + 3].original;
     resolved = MenuTranslation_PortText(kPortText[index + 3].id);
     if (!resolved) resolved = original;
     snprintf(out, (size_t)capacity, "%s", resolved);
     /* 1: edited English fallback; 2: this menu language supplies the text. */
     return strcmp(out, original) == 0 ? 0 : sPortLocalized[index + 3] ? 2 : 1;
+}
+
+/* Copy a translated session-end notice into the game's text buffer. */
+int PortTbo_DisconnectTextCopy(int reason, char *out, int capacity) {
+    const char *id, *fallback, *resolved;
+    if (!out || capacity < 1 || (reason != 1 && reason != 2)) return 0;
+    id = reason == 1 ? "net/player_left" : "net/connection_lost";
+    fallback = reason == 1 ? "The other player left the match." : "Connection lost.";
+    resolved = MenuTranslation_PortText(id);
+    snprintf(out, (size_t)capacity, "%s", resolved != NULL ? resolved : fallback);
+    return 1;
 }
 const char *MenuTranslation_Original(const char *id) { TrRow *r = __atomic_load_n(&sReady, __ATOMIC_ACQUIRE) ? tr_find(id) : NULL; return r != NULL ? r->original : NULL; }
 const char *MenuTranslation_Group(const char *id) { int i; if (!__atomic_load_n(&sReady, __ATOMIC_ACQUIRE)) return NULL; for (i = 0; i < sNGroups; i++) if (strcmp(sGroups[i].id, id) == 0) return sGroups[i].text; return NULL; }

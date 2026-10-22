@@ -2,9 +2,14 @@
 #include "menu/menu_e.h"
 #include "sys/pad.h"
 #include "sys/save.h"
+#include "sys/dialog.h"
 
 #ifdef PORT
 #include <stdlib.h>
+extern s32 File_IsPartitionLoaded(s32 pt);
+static void Tb_DisconnectDialogTerm(void);
+static s32 Tb_DisconnectDialogStartClose(void);
+static s32 Tb_DisconnectDialogIsClosed(void);
 /*
  * PC only: "Tenkaichi Budokai Online", the main menu's item 11 (menu_a.c). The port's screen mode (port_screen.c)
  * runs this screen. Its own look for online play, after the mockups of online_design: every picture, piece,
@@ -45,6 +50,7 @@ extern s32 MsgWin_PortLineRoom(s32 right);
 extern void MsgWin_PortSameTop(void);
 extern s32 Port_WiiArtAvailable(void);
 extern s32 PortTbo_WiiTextCopy(s32 index, char *out, s32 capacity);
+extern s32 PortTbo_DisconnectTextCopy(s32 reason, char *out, s32 capacity);
 extern s32 PortTbo_WiiUseFont(void);
 extern s32 PortTbo_WiiUseFontForArtwork(s32 textKind);
 extern s32 PortTbo_TextId(const char *text, s32 kind);
@@ -267,6 +273,7 @@ extern int Port_LobbyPoll(void);
 extern void Port_LobbyCancel(void);
 extern void Port_LobbyLaunch(void);
 extern int Port_NetSessionsEnded(void); /* gs/net.c */
+extern int Port_NetTakeEndReason(void); /* 1: peer left; 2: connection lost */
 extern const char *Port_LobbyCode(void);
 extern const char *Port_LobbyError(void);
 extern int Port_LobbyOther(void);
@@ -394,6 +401,10 @@ typedef struct TboScreen {
     s32 found;          /* the other player is there: the match is starting */
     s32 foundAt;        /* Wii VS: keep both names on screen before launching */
     s32 ended;          /* Port_NetSessionsEnded when it started: a change says the match has been played */
+    s32 disconnectReason; /* dismissible message after an interrupted Wii match */
+    s32 disconnectClosing;
+    s32 disconnectCloseFrames;
+    char disconnectLine[128];
     s32 waitBack;       /* the screen a cancelled search goes back to */
     /* Quick Match */
     s32 queue;          /* 0 one on one, 1 teams, 2..4 teams with 10/15/20 DP */
@@ -826,16 +837,30 @@ static void Tb_BeginSearch(s32 host) {
     Tb_SetMode(TB_WAIT);
 }
 
+static void Tb_ShowDisconnect(s32 reason) {
+    sTb->disconnectReason = reason;
+    sTb->disconnectClosing = 0;
+    sTb->disconnectCloseFrames = 0;
+    if (!PortTbo_DisconnectTextCopy(reason, sTb->disconnectLine, sizeof(sTb->disconnectLine)))
+        Ps_Copy(sTb->disconnectLine, reason == 1 ? "The other player left the match."
+                                                : "Connection lost.", sizeof(sTb->disconnectLine));
+}
+
 /* What the search says (each frame on the screens that wait): the rival came (the match starts), or it failed.
    Returns 1 when the screen that called has nothing more to do this frame. */
 static s32 Tb_SearchNews(void) {
     s32 state;
 
-    /* The session is over: the game is back as it was when it was asked for (the rival had just come), so these
-       screens are again where they were then. The match has been played: back to the first page. */
+    /* The session is over: the game is back as it was when it was asked for. */
     if (sTb->found && Port_NetSessionsEnded() != sTb->ended) {
+        s32 reason = Port_NetTakeEndReason();
         sTb->found = 0;
-        Tb_SetMode(sTb->wii ? TB_WII_HOME : TB_HUB);
+        if (sTb->wii && reason) {
+            Tb_ShowDisconnect(reason);
+            Tb_SetMode(sTb->waitBack);
+        } else {
+            Tb_SetMode(sTb->wii ? TB_WII_HOME : TB_HUB);
+        }
         return 1;
     }
     state = sTb->found ? 2 : Port_LobbyPoll();
@@ -1152,7 +1177,32 @@ static void Tb_WiiUpdate(s32 live) {
               : sTb->mode == TB_WII_FRIEND_FORMAT ? 5
               : sTb->mode == TB_WII_CUSTOM ? (sTb->wiiNormalBattle ? 3 : 2) : 2;
 
+    if (sTb->disconnectReason) {
+        if (sTb->disconnectClosing && Tb_DisconnectDialogIsClosed()) {
+            Tb_DisconnectDialogTerm();
+            sTb->disconnectReason = 0;
+            sTb->disconnectClosing = 0;
+        } else if (!sTb->disconnectClosing && live &&
+                   (pad->gamePressed & (PADG_CROSS | PADG_TRIANGLE))) {
+            if (Tb_DisconnectDialogStartClose()) {
+                sTb->disconnectClosing = 1;
+                sTb->disconnectCloseFrames = 0;
+            } else {
+                Tb_DisconnectDialogTerm();
+                sTb->disconnectReason = 0;
+            }
+        }
+        return;
+    }
+
     if (sTb->mode == TB_WII_VS) {
+        if (sTb->found && Port_NetSessionsEnded() != sTb->ended) {
+            s32 reason = Port_NetTakeEndReason();
+            sTb->found = 0;
+            if (reason) Tb_ShowDisconnect(reason);
+            Tb_SetMode(sTb->waitBack);
+            return;
+        }
         if (sTb->wiiNextMode) return;
         if (!sTb->found) {
             s32 state = Port_LobbyPoll();
@@ -2979,12 +3029,22 @@ static void Tb_KeyFocus(char *out, s32 rows, char (*keys)[KEY_COLS + 1], const T
 /* Once a frame, after the page's update. */
 static void Tb_Speak(void) {
     static s32 mode = -1;
+    static s32 disconnectSaid;
     static char said[160];
     static char typed[40];
     static s32 noted;
     char focus[160];
     char part[64];
     char now[40];
+
+    if (sTb->disconnectReason) {
+        if (!disconnectSaid) {
+            PortA11y_Say(sTb->disconnectLine, TB_SAY_INTERRUPT);
+            disconnectSaid = 1;
+        }
+        return;
+    }
+    disconnectSaid = 0;
 
     if (sTb->frames == 0) { /* (the screens opened again) */
         mode = -1;
@@ -3388,6 +3448,121 @@ static void Tb_DrawText(void) {
     }
 }
 
+/* The memory-card window is also used for the disconnect message. Keep its Dialog separate from the game's
+   global instance, as the PC quit prompt does. Its text table must live in game-addressable memory. */
+static Dialog *sTbDisconnectDialog;
+static void *sTbDisconnectArchive;
+static void *sTbDisconnectResource;
+static struct {
+    u32 offsets[2];
+    u16 text[128];
+} sTbDisconnectMessage;
+
+static void Tb_DisconnectText(void) {
+    const u8 *src = (const u8 *)sTb->disconnectLine;
+    s32 used = 0;
+
+    sTbDisconnectMessage.offsets[0] = 0;
+    sTbDisconnectMessage.offsets[1] = sizeof(sTbDisconnectMessage.offsets);
+    while (*src && used < 126) {
+        u32 c = *src++;
+        if (c >= 0xC2 && c <= 0xDF && (src[0] & 0xC0) == 0x80) {
+            c = ((c & 0x1F) << 6) | (*src++ & 0x3F);
+        } else if (c >= 0xE0 && c <= 0xEF && src[0] && src[1] &&
+                   (src[0] & 0xC0) == 0x80 && (src[1] & 0xC0) == 0x80) {
+            c = ((c & 0x0F) << 12) | ((src[0] & 0x3F) << 6) | (src[1] & 0x3F);
+            src += 2;
+        } else if (c >= 0x80) {
+            c = '?';
+        }
+        if (c >= 0xD800 && c <= 0xDFFF) c = '?';
+        sTbDisconnectMessage.text[used++] = (u16)c;
+    }
+    sTbDisconnectMessage.text[used] = 0;
+}
+
+static void Tb_DisconnectDialogInit(void) {
+    Dialog *previous;
+
+    if (sTbDisconnectDialog || sTbDisconnectArchive || !gProgress || !File_IsPartitionLoaded(1)) return;
+    sTbDisconnectArchive = File_LoadSync(gProgress->baseFile + 0x19, NULL, 0);
+    if (!sTbDisconnectArchive) return;
+    sTbDisconnectResource = Sprite_Unpack(MPACK_AT(sTbDisconnectArchive, 2), NULL, NULL);
+    if (!sTbDisconnectResource) {
+        Heap_Free(sTbDisconnectArchive);
+        sTbDisconnectArchive = NULL;
+        return;
+    }
+    Tb_DisconnectText();
+    previous = gDialog;
+    Dialog_Init(MPACK_AT(sTbDisconnectResource, 1), sTbDisconnectMessage.offsets, 0);
+    sTbDisconnectDialog = gDialog;
+    if (sTbDisconnectDialog) {
+        Dialog_SetLayout(0);
+        Dialog_SetMsg(0);
+        Dialog_SetChoices(0);
+        Dialog_Start(DIALOG_CMD_SHOW);
+    }
+    gDialog = previous;
+}
+
+static s32 Tb_DisconnectDialogStartClose(void) {
+    Dialog *previous;
+
+    if (!sTbDisconnectDialog) return 0;
+    previous = gDialog;
+    gDialog = sTbDisconnectDialog;
+    Dialog_Start(DIALOG_CMD_CLOSE);
+    gDialog = previous;
+    return 1;
+}
+
+static s32 Tb_DisconnectDialogIsClosed(void) {
+    return sTbDisconnectDialog && (sTbDisconnectDialog->flags & DIALOG_FLAG_CLOSED);
+}
+
+static void Tb_DisconnectDialogTerm(void) {
+    Dialog *previous = gDialog;
+    if (sTbDisconnectDialog) {
+        gDialog = sTbDisconnectDialog;
+        Dialog_Term();
+        gDialog = previous;
+        sTbDisconnectDialog = NULL;
+    }
+    if (sTbDisconnectResource) {
+        Heap_Free(sTbDisconnectResource);
+        sTbDisconnectResource = NULL;
+    }
+    if (sTbDisconnectArchive) {
+        Heap_Free(sTbDisconnectArchive);
+        sTbDisconnectArchive = NULL;
+    }
+}
+
+/* Shown after the saved menu state is restored from an interrupted match. */
+static void Tb_DrawDisconnect(void) {
+    Dialog *previous;
+    f32 bob;
+    f32 drop;
+    s32 eyeAlpha;
+    Tb_DisconnectDialogInit();
+    if (!sTbDisconnectDialog) return;
+    Ps_Rect(0.0f, 0.0f, 512.0f, 448.0f, Ps_Rgba(0, 0, 0, 0x50), Ps_Rgba(0, 0, 0, 0x50));
+    previous = gDialog;
+    gDialog = sTbDisconnectDialog;
+    Dialog_Draw(1);
+    sTbDisconnectDialog = gDialog;
+    gDialog = previous;
+    bob = Tb_WiiIdleBob((sTb->frames * 3) % 2000, 4.0f);
+    drop = sTb->disconnectClosing ? (f32)(sTb->disconnectCloseFrames++ * 6) : 0.0f;
+    Ps_SpriteScreen(TBO_WII_DISCONNECT_GIRU, 192.0f, 274.0f + bob + drop, 320.0f, 424.0f + bob + drop,
+                    0.0f, 0.0f, 1.0f, 1.0f, PS_PLAIN, 0x80);
+    eyeAlpha = (s32)(56.0f * (1.0f - cosf((f32)(sTb->frames % 120) * (6.283185307f / 120.0f))));
+    /* The glow occupies texels (1,1)..(20,21) in its 32x32 sheet; keep its round alpha edge. */
+    Ps_SpriteScreen(TBO_WII_DISCONNECT_GIRU_EYE, 249.0f, 328.0f + bob + drop, 268.0f, 348.0f + bob + drop,
+                    1.0f / 32.0f, 1.0f / 32.0f, 20.0f / 32.0f, 21.0f / 32.0f, PS_PLAIN, eyeAlpha);
+}
+
 /* ----------------------------------------------------------------------------------------------- the frame loop */
 /* From the main menu's item until triangle on the hub. Returns 1 when it was left for "Train While Waiting" (the
    room is still open; Duel_Main goes on to the Ultimate Training menu), 0 back to the main menu. */
@@ -3526,7 +3701,9 @@ s32 PortTbo_Run(void) {
             if (sTb->mode != TB_WII_NAME && sTb->mode != TB_WII_FRIEND_CODE) IconWin_Draw();
             Tb_Draw();
             Tb_DrawText();
-            if (sTb->mode != TB_WII_NAME && sTb->mode != TB_WII_FRIEND_CODE && sTb->mode != TB_WII_SETTINGS &&
+            if (sTb->disconnectReason) Tb_DrawDisconnect();
+            if (!sTb->disconnectReason && sTb->mode != TB_WII_NAME &&
+                sTb->mode != TB_WII_FRIEND_CODE && sTb->mode != TB_WII_SETTINGS &&
                 sTb->mode != TB_WII_CUSTOM && sTb->mode != TB_WII_FRIEND_MENU &&
                 sTb->mode != TB_WII_FRIEND_FORMAT)
                 Ps_PromptsDraw();
@@ -3558,6 +3735,7 @@ s32 PortTbo_Run(void) {
         }
     }
     sceGsSyncPath(0, 0);
+    Tb_DisconnectDialogTerm();
     if (sTb->wiiDialogStarted) Voice_Stop(0);
     Port_DcNameClose();
     Port_EscQuit(1);

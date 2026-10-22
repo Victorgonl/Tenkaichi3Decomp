@@ -2187,6 +2187,32 @@ f32 TeamSel_Input(s32 *result) {
     }
 }
 
+/* Pick any unused fighter that fits the remaining DP budget, if applicable. */
+#ifdef PORT
+static s32 TeamSel_BotNextCell(s32 side) {
+    s32 best = -1;
+    s32 choices = 0;
+    s32 used = 0;
+    s32 k;
+
+    if (gTeamSel->side[side]->memberCount >= TS_MEMBER_MAX) return -1;
+    if (gTeamSel->battleType == 2) {
+        for (k = 0; k < gTeamSel->side[side]->memberCount; k++)
+            used += ChrTbl_GetCost(gTeamSel->side[side]->member[k].chara);
+    }
+    for (k = 0; k < gTeamSel->masterCount[side]; k++) {
+        s32 chara = gTeamSel->cells[side][k].id;
+        s32 cost;
+        if (chara < 0 || chara >= TS_RANDOM || gTeamSel->cells[side][k].formCount != 0 ||
+            !TeamSel_IsCharaFree(side, chara)) continue;
+        cost = ChrTbl_GetCost(chara);
+        if (gTeamSel->battleType == 2 && used + cost > gTeamSel->dpMax) continue;
+        if (Rand_Range(++choices) == 0) best = k;
+    }
+    return best;
+}
+#endif
+
 /* The song a chosen "random" stands for: one of the nine battle songs. PC build, with songs added from outside
    the disc: any entry of the music list before "random", the disc's and the added ones alike. */
 #ifdef PORT
@@ -2261,31 +2287,29 @@ s32 TeamSel_Run(s32 section) {
             gTeamSel->side[Port_NetBotSide()]->state != TEAMSEL_ST_DONE) {
             s32 side = Port_NetBotSide();
             if (!botPicked && gTeamSel->side[side]->state == TEAMSEL_ST_GRID) {
-                s32 start = Rand_Range(gTeamSel->masterCount[side]);
-                s32 k;
-                for (k = 0; k < gTeamSel->masterCount[side]; k++) {
-                    s32 cell = (start + k) % gTeamSel->masterCount[side];
-                    s32 chara = gTeamSel->cells[side][cell].id;
-                    if (chara >= 0 && chara < TS_RANDOM && gTeamSel->cells[side][cell].formCount == 0 &&
-                        TeamSel_FitsDp(side, chara)) {
-                        TsMember *member = &gTeamSel->side[side]->member[gTeamSel->side[side]->cur];
-                        TeamSel_ClipGoto(side + 3, side, TEAMSEL_CLIP_CHIP, "fl_off_start");
-                        member->col = cell % TS_COLS;
-                        member->row = cell / TS_COLS;
-                        TeamSel_SetChips(side);
-                        gTeamSel->side[side]->chara = gTeamSel->side[side]->chip[0][member->col];
-                        TeamSel_RequestFace(side);
-                        TeamSel_ClipGoto(side + 3, side, TEAMSEL_CLIP_CHIP, "fl_on_start");
-                        botPicked = 1;
-                        break;
-                    }
+                s32 cell = TeamSel_BotNextCell(side);
+                if (cell >= 0) {
+                    TsMember *member = &gTeamSel->side[side]->member[gTeamSel->side[side]->cur];
+                    TeamSel_ClipGoto(side + 3, side, TEAMSEL_CLIP_CHIP, "fl_off_start");
+                    member->col = cell % TS_COLS;
+                    member->row = cell / TS_COLS;
+                    TeamSel_SetChips(side);
+                    gTeamSel->side[side]->chara = gTeamSel->side[side]->chip[0][member->col];
+                    TeamSel_RequestFace(side);
+                    TeamSel_ClipGoto(side + 3, side, TEAMSEL_CLIP_CHIP, "fl_on_start");
+                    botPicked = 1;
                 }
             }
-            if (botPicked && ++botWait >= 20) {
-                if (gTeamSel->side[side]->state == TEAMSEL_ST_TEAM && gTeamSel->side[side]->cur != TS_CUR_MENU)
-                    gPad[side].gameRepeat |= 2;
-                else
+            if ((botPicked || gTeamSel->side[side]->state == TEAMSEL_ST_TEAM) && ++botWait >= 20) {
+                if (gTeamSel->side[side]->state == TEAMSEL_ST_TEAM) {
+                    botPicked = 0;
+                    if (TeamSel_BotNextCell(side) < 0 && gTeamSel->side[side]->cur != TS_CUR_MENU)
+                        gPad[side].gameRepeat |= 2;
+                    else
+                        gPad[side].gamePressed |= 0x200;
+                } else {
                     gPad[side].gamePressed |= 0x200;
+                }
                 botWait = 0;
             }
         } else if (Port_NetBotSide() == 0 && (gTeamSel->flags & TEAMSEL_STAGE) &&

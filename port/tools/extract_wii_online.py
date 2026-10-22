@@ -665,19 +665,22 @@ def extract(source, out, dolphin_tool, requested, voice_afs=None, require_eu=Fal
                 png(image_dir / filename, w, h, pixels)
                 pics.append({"file": f"{image_dir.name}/{filename}", "width": w, "height": h})
             item = {"index": ri, "offset": x, "size": y - x, "textures": pics}
-            if si == 0 and ri == 13:
-                # The nickname resource contains the keyboard and input frame
-                # in part 1, and the Create Player Name heading in part 2.
-                parts = table(resource, "nickname pack")
-                nested_pics = []
-                for part in (1, 2):
-                    a, b = parts[part:part + 2]
-                    for ti, w, h, pixels in textures(resource[a:b]):
-                        image_dir = folder / f"resource-013-part-{part:02d}-textures"
-                        image_dir.mkdir(exist_ok=True)
-                        filename = f"texture-{ti:03d}.png"
-                        png(image_dir / filename, w, h, pixels)
-                        nested_pics.append({"file": f"{image_dir.name}/{filename}", "width": w, "height": h})
+            # Some resources are packs of smaller texture sets: the small dialog Giru is in
+            # section 0 / resource 10 / part 0, and the name keyboard is in resource 13.
+            try:
+                parts = table(resource, f"section {si} resource {ri} nested pack")
+            except ValueError:
+                parts = ()
+            nested_pics = []
+            for part, (a, b) in enumerate(zip(parts, parts[1:])):
+                for ti, w, h, pixels in textures(resource[a:b]):
+                    image_dir = folder / f"resource-{ri:03d}-part-{part:02d}-textures"
+                    image_dir.mkdir(exist_ok=True)
+                    filename = f"texture-{ti:03d}.png"
+                    png(image_dir / filename, w, h, pixels)
+                    nested_pics.append({"file": f"{image_dir.name}/{filename}", "part": part,
+                                        "width": w, "height": h})
+            if nested_pics:
                 item["nested_textures"] = nested_pics
             items.append(item)
         manifest["sections"].append({"index": si, "decoded_size": len(section), "resources": items})
@@ -698,7 +701,7 @@ def extract(source, out, dolphin_tool, requested, voice_afs=None, require_eu=Fal
                 cards.append(f'<figure><a href="{html.escape(path)}"><img loading="lazy" src="{html.escape(path)}" alt="{html.escape(label)}"></a><figcaption>{html.escape(label)}</figcaption></figure>')
             for texture in resource.get("nested_textures", []):
                 path = f"section-{section['index']:02d}/{texture['file']}"
-                label = f"section {section['index']} · resource {resource['index']} · nickname · {texture['width']}×{texture['height']}"
+                label = f"section {section['index']} · resource {resource['index']} · part {texture['part']} · {texture['width']}×{texture['height']}"
                 cards.append(f'<figure><a href="{html.escape(path)}"><img loading="lazy" src="{html.escape(path)}" alt="{html.escape(label)}"></a><figcaption>{html.escape(label)}</figcaption></figure>')
     (out / "index.html").write_text(
         '<!doctype html><html lang="en"><meta charset="utf-8"><title>Dragon Net Battle assets</title>'
