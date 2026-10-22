@@ -15,6 +15,7 @@ The ending/credits movie (`zs3used.pss`, played by `Movie_PlayEnding` in `src/sy
 - **Dragon Story saga selection:** the animated monkeys and branch, guide portraits, saga and level plates, scenario thumbnails with their decorative backing, label bars and NEW badge, the complete achievement panel (caption, digits and percent sign), navigation arrows, and the guide's dialogue text. Its picture background, scenery animation and message-window backing remain full-width.
 - **Dragon Story episode selection (after opening a saga):** episode thumbnail plates with NEW badges, large preview with its mask and frame, saga and battle titles, CLEAR badge, navigation arrows, guide portrait and dialogue, and the scrolling story panel with its text and next indicator. The separate `ModeBg` picture and scenery movie remain full-width except for Giru in the GT saga.
 - **Dragon History battle outcomes:** win/lose character artwork and captions, episode title and backing, earned/total points with their backings, and the complete reward popup with text. Background pictures and scrolling speed lines remain full-width.
+- **Versus Duel menu:** Vegeta and Nappa, complete main-option and battle-type plates, DP choices, battle settings and value panels with their backings, help text, and the reset-confirmation dialog. The picture, clouds and smoke remain wide. Character/team selection after leaving this menu is separate.
 - **Memory-card dialogs:** the animated dialog window and its text wherever the memory-card flow opens it.
 - **Exit confirmation dialog:** the animated window, choices, and text.
 - **Shared menu headers:** the `IconWin` heading artwork on screens that use it, including Ultimate Battle, character selection, and Battle Net. This covers the shared header component, not each screen's other artwork.
@@ -25,7 +26,7 @@ The title, main menu, Dragon Story saga selection and Dragon Story episode selec
 
 The game's menu movies are Flash-like timelines. `FlashSlot_Draw` in `src/sys/gfxm_c.c` can place a marker before a named clip tree and reset it after the tree. `FlashShape_Draw` can mark a standalone image record. In `port/src/gs/gs_draw.c`, markers `0x19`, `0x1A` and `0x1B` narrow the drawn vertices about the centre, left edge and right edge respectively. The scale is `1333.333 / Port_AspectMilli()`; at 16:9 it is approximately 0.75. The right-edge and left-edge pivots are page coordinates 512 and 0. No 4:3 scissor is used: artwork can animate into and out of the visible area without being cut off.
 
-`Port_FlashDrawMenuArt(movie, screen, ...)` scopes rules to a known movie: title (1), main menu (2), shared heading window (3), the opted-in memory-card/exit dialogs (4), Dragon Story saga selection (5), episode selection (6), battle outcomes (7), and GT background Giru (8). Other menu movies are not automatically transformed. A marker never changes the PS2 build because all selection code is under `#ifdef PORT`.
+`Port_FlashDrawMenuArt(movie, screen, ...)` scopes rules to a known movie: title (1), main menu (2), shared heading window (3), the opted-in memory-card/exit dialogs (4), Dragon Story saga selection (5), episode selection (6), battle outcomes (7), GT background Giru (8), and Versus Duel menu (9). Other menu movies are not automatically transformed. A marker never changes the PS2 build because all selection code is under `#ifdef PORT`.
 
 ### Artwork staged outside the page
 
@@ -58,6 +59,10 @@ When extending another screen, inspect its initial and transition frames for par
 | Dragon History outcome points | `mc_point_text_*`, `mc_get_point_*`, `mc_total_point_*`; result-movie images 5 and 7 | left |
 | Dragon History outcome captions and episode title | `mc_result_text_*`, `mc_battle_text`; result-movie image 3 | left |
 | Dragon History reward popup | complete `GetWin_Draw`, including its `Font_FlushAll`, scoped by `Port_GetWinDraw43` | left |
+| Versus Duel options and DP | `mc_menu_plate_*`, `mc_mode_*`, `mc_dp_*`; movie-local images 41–43 | left |
+| Versus Duel Battle Settings | `mc_battle_set_text_*`, primary `mc_set_*` values; movie-local images 44–46 | centre |
+| Versus Duel guides and choice panels | complete `mc_guide_nappa`, `mc_guide_bejita`, settings value-choice panels and `set_4_1p2p`; images 47, 48 | right |
+| Versus Duel help/reset dialog | scoped `Port_MsgWinDraw43` / `Port_DialogDraw43` | left help text; centred confirmation window and text |
 | Shared heading | left-side clips and standalone shapes; `mc_window_up_02` separately | left; right corner at right |
 | Memory-card and exit dialogs | animated window and separately flushed glyphs; texture 0 dimmer remains full-width | centre, except dimmer |
 | Main-menu bottom description | separately flushed glyphs, not its window backing | left |
@@ -90,6 +95,18 @@ Both saga-selection chevrons use the carousel's left pivot. A right pivot on `mc
 The reward popup is its own movie, created by `GetWin_Init` from resource 5's nested pack (English movie resource 5). `HistResult_Draw` calls `Port_GetWinDraw43` in `src/battle/view_a.c`, wrapping the complete `GetWin_Draw` call in the left marker when the artwork option is enabled and whole-page 4:3 is disabled. This keeps the animated window, title, reward icon, amount and deferred text together through opening, next-reward and closing animations. Other callers of `GetWin_Draw` retain their existing layout.
 
 Verify a loss and all three victory illustration variants, outcome entry and exit, episode titles, earned and total-point counters with different digit counts, and reward popups for money, characters, episodes and other unlocks. Check multiple rewards in succession, both text lines and long names. Repeat at 4:3, 16:9 and ultrawide with the artwork option enabled/disabled and whole-page 4:3 enabled; check that scenery stays wide while foreground groups and reward glyphs remain aligned. These rules do not opt in the separate saga-completion outro movie.
+
+### Versus Duel menu
+
+`DuelMenu_Draw` in `src/menu/menu_g_c.c` uses movie scope 9. The archive is `gamedata/pzs3us1/00448.bin`, section 1, resource 19. Select whole named plates so their on/off text, icons, arrows and highlights inherit one transform. Main options and battle types enter from the left. DP choices and their panel use the left pivot with the main battle-type menu; right-anchoring that group pushes it over the guides. Expanded value-choice panels and Vegeta/Nappa use the right pivot. Primary settings values (`mc_set_1`, etc., including `mc_set_4as` / `mc_set_4bs`) use the centre pivot with the Battle Settings labels and backing. The expanded choices (`mc_set_1_1`, etc., `mc_set_4a_*`, `mc_set_4b_*`, and `set_4_1p2p`) use the right pivot.
+
+Root shape 41/image 41 backs the left menu. Shapes 42 and 43/images 42 and 43 back the left-anchored DP controls. Shape 44 combines images 46, 45 and 44 for the settings backing and uses the centre pivot. Shapes 45 and 46/images 47 and 48 back the right value panels. These image numbers apply only to the Duel menu movie. The standalone background shapes, `mc_kumo`, `mc_kemuri_*` and `Sprite_DrawPicture` retain their wide presentation.
+
+Duel DP, Battle Settings and expanded values also need phase gates: their parked positions can become visible after narrowing. `sPortDuelPanels` in `menu_g_c.c` supplies bits 1, 2 and 4 to movie scope 9. Each bit is set when its entry is requested and cleared only after the movie accepts input again on another menu level, preserving the exit animation. Gate complete root clips and their standalone backings (images 42–43, 44–46 and 47–48 respectively). Reset the bits when the menu initializes. This prevents values from waiting visibly on screen before their panel opens.
+
+The shared header retains its existing `IconWin` rule. Help text uses `Port_MsgWinDraw43`, which marks its deferred glyph flush with the left pivot. `DuelMenu_UpdateReset` uses `Port_DialogDraw43` for the reset window, choices and deferred text. All of these rules follow the artwork toggle and avoid double narrowing with whole-menu 4:3 enabled.
+
+Verify 1P vs COM, 1P vs 2P (including unavailable-controller styling), COM vs COM, all battle types and DP limits, every settings row and expanded value panel, both player columns, reset confirmation/cancel, guide eye/mouth animation and entry/exit. Check the help text and backing/label alignment at 4:3, 16:9 and ultrawide with both toggle states. Character and team selection movies reached after this menu require separate artwork rules.
 
 ### Dialogue and deferred text
 

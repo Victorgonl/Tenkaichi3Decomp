@@ -1,4 +1,8 @@
 #include "common.h"
+
+#ifdef PORT
+static s32 sPortDuelPanels; /* bit 0 DP, bit 1 settings, bit 2 expanded values */
+#endif
 #include "menu/menu_g.h"
 #include "sys/pad.h"
 #include "sys/save.h"
@@ -189,6 +193,9 @@ void DuelMenu_Init(s32 section) {
     MTexRes *res = NULL;
     s32 i;
 
+#ifdef PORT
+    sPortDuelPanels = 0;
+#endif
     DM = Heap_Alloc(0x194, 0x20, 0, 2);
     memset(DM, 0, 0x194);
     DM->pack = (u32 *)MPACK_AT(gMenuArc5, section);
@@ -469,10 +476,22 @@ void DuelMenu_Draw(void) {
         }
     }
     for (i = 0; i < DUELMENU_FLASH_NUM; i++) {
+#ifdef PORT
+        extern void Port_FlashDrawMenuArt(void *movie, s32 screen, s32 visible);
+        Port_FlashDrawMenuArt(&DM->flash[i], 9, sPortDuelPanels);
+#else
         Flash_Draw(&DM->flash[i]);
+#endif
     }
     IconWin_Draw();
+#ifdef PORT
+    {
+        extern void Port_MsgWinDraw43(s32 line);
+        Port_MsgWinDraw43(DM->voiceLine);
+    }
+#else
     MsgWin_Draw(0, 0, DM->voiceLine);
+#endif
 }
 
 /* Sends the plate under the cursor of a level to a label. */
@@ -553,6 +572,13 @@ void DuelMenu_Update(void) {
     for (i = 0; i < DUELMENU_FLASH_NUM; i++) {
         Flash_Advance(&DM->flash[i]);
     }
+#ifdef PORT
+    if (DM->flash[0].flags & MFLASH_PAD) {
+        if (DM->level != DUEL_LEVEL_DP) sPortDuelPanels &= ~1;
+        if (DM->level < DUEL_LEVEL_SETTING) sPortDuelPanels &= ~2;
+        if (DM->level != DUEL_LEVEL_VALUE) sPortDuelPanels &= ~4;
+    }
+#endif
 }
 
 #define DM_LEVEL_GOTO(label) DuelMenu_ClipGoto(DM->level, label)
@@ -608,6 +634,9 @@ void DuelMenu_Input(s32 *result) {
                 DM_LEVEL_GOTO("fl_ok");
                 sprintf(name, "fl_mode_%d", DM_CUR + 1);
                 Flash_GotoLabel(&DM->flash[0], name, 1);
+#ifdef PORT
+                sPortDuelPanels |= 2;
+#endif
                 DM->level = DUEL_LEVEL_SETTING;
                 IconWin_Close();
                 MsgWin_SetText(DM->setText);
@@ -676,6 +705,9 @@ void DuelMenu_Input(s32 *result) {
             }
             DM_LEVEL_GOTO("fl_ok");
             if (DM_CUR == 2) {
+#ifdef PORT
+                sPortDuelPanels |= 1;
+#endif
                 DM->level = DUEL_LEVEL_DP;
                 DM_LEVEL_GOTO("fl_on_start");
                 sprintf(name, "fl_dp_%d", DM->sel[DUEL_LEVEL_TOP] + 1);
@@ -769,6 +801,9 @@ void DuelMenu_Input(s32 *result) {
                 DM->reset.state = 1;
             } else {
                 DuelMenu_SetupValue();
+#ifdef PORT
+                sPortDuelPanels |= 4;
+#endif
                 DM->level = DUEL_LEVEL_VALUE;
                 DM_CUR = DM->sel[DUEL_LEVEL_SETTING];
                 DM_LEVEL_GOTO("fl_on_start");
@@ -943,7 +978,14 @@ void DuelMenu_UpdateReset(void) {
         break;
     }
     Dialog_SetMsg(r->msg);
+#ifdef PORT
+    {
+        extern void Port_DialogDraw43(s32 visible);
+        Port_DialogDraw43(1);
+    }
+#else
     Dialog_Draw(1);
+#endif
 }
 
 /*

@@ -20,7 +20,7 @@ extern s32 Port_TitleMainChars43(void);
 extern s32 Port_Menus43(void);
 extern s32 Port_AspectMilli(void);
 static s32 sMenuArtDrawDepth;
-static s32 sMenuArtScreen; /* 1: title; 2: main; 3: header; 4: dialog; 5: saga; 6: episodes; 7: story result; 8: GT scenery */
+static s32 sMenuArtScreen; /* 1: title; 2: main; 3: header; 4: dialog; 5: saga; 6: episodes; 7: story result; 8: GT scenery; 9: Duel menu */
 static s32 sTitleMenuEntriesVisible;
 
 /* Return the anchor marker for each foreground clip tree. Keep a whole option
@@ -88,6 +88,19 @@ static s32 FlashClip_MenuArtMarker(const char *name) {
         if (strncmp(name, "mc_result_text_", 15) == 0 ||
             strcmp(name, "mc_battle_text") == 0) return 0x1A;
     }
+    if (sMenuArtScreen == 9) {
+        if (strcmp(name, "mc_guide_nappa") == 0 || strcmp(name, "mc_guide_bejita") == 0 ||
+            strcmp(name, "set_4_1p2p") == 0) return 0x1B;
+        if (strncmp(name, "mc_dp_", 6) == 0) return 0x1A;
+        if (strncmp(name, "mc_battle_set_text_", 19) == 0) return 0x19;
+        if (strncmp(name, "mc_set_", 7) == 0) {
+            /* Value-choice panels enter from the right; primary values stay
+               with the centred settings labels and backing. */
+            return (name[8] == '_' || strncmp(name, "mc_set_4a_", 10) == 0 ||
+                    strncmp(name, "mc_set_4b_", 10) == 0) ? 0x1B : 0x19;
+        }
+        if (strncmp(name, "mc_menu_plate_", 14) == 0 || strncmp(name, "mc_mode_", 8) == 0) return 0x1A;
+    }
     if (sMenuArtScreen == 8 && strcmp(name, "mc_gil") == 0) return 0x1A;
     return 0;
 }
@@ -120,6 +133,11 @@ static s32 FlashShape_MenuArtMarker(s32 image) {
     if (sMenuArtScreen == 7) {
         if (image == 3) return 0x1A; /* episode-title backing */
         if (image == 5 || image == 7) return 0x1A; /* point label/number backings */
+    }
+    if (sMenuArtScreen == 9) {
+        if (image == 41 || image == 42 || image == 43) return 0x1A;
+        if (image >= 44 && image <= 46) return 0x19;
+        if (image == 47 || image == 48) return 0x1B;
     }
     return 0;
 }
@@ -722,6 +740,18 @@ void FlashSlot_Draw(FlashSlot *slot, FlashProp *parent, Flash *flash) {
     s32 j;
 #ifdef PORT
     s32 menuArt = 0;
+    if (clip != NULL && parent == NULL && sMenuArtScreen == 9) {
+        const char *name = clip->name;
+        s32 panel = 0;
+        if (strncmp(name, "mc_dp_", 6) == 0) panel = 1;
+        if (strncmp(name, "mc_battle_set_text_", 19) == 0) panel = 2;
+        if (strncmp(name, "mc_set_", 7) == 0) {
+            panel = (name[8] == '_' || strncmp(name, "mc_set_4a_", 10) == 0 ||
+                     strncmp(name, "mc_set_4b_", 10) == 0) ? 4 : 2;
+        }
+        if (strcmp(name, "set_4_1p2p") == 0) panel = 4;
+        if (panel && !(sTitleMenuEntriesVisible & panel)) return;
+    }
     if (clip != NULL && sMenuArtScreen == 5) {
         const char *name = clip->name;
         s32 phase = sTitleMenuEntriesVisible; /* bit 0 menu, bit 1 saga, bit 2 difficulty */
@@ -1614,6 +1644,12 @@ void FlashShape_Draw(FlashShape *shape, FlashProp *prop, Flash *flash) {
         memset(&rec, 0, sizeof(rec));
         memcpy(&rec, data + 10 + i * sizeof(rec), sizeof(rec));
 #ifdef PORT
+        if (sMenuArtScreen == 9) {
+            s32 panel = (rec.image == 42 || rec.image == 43) ? 1 :
+                        (rec.image >= 44 && rec.image <= 46) ? 2 :
+                        (rec.image == 47 || rec.image == 48) ? 4 : 0;
+            if (panel && !(sTitleMenuEntriesVisible & panel)) continue;
+        }
         if (sMenuArtScreen == 1 && !sTitleMenuEntriesVisible && (rec.image == 6 || rec.image == 9)) {
             continue; /* title option labels are not drawn before fl_menu_in */
         }
