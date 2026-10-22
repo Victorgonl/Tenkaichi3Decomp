@@ -1183,13 +1183,35 @@ void CharSel_Draw(void) {
     }
 
     for (i = 0; i < CHARSEL_FLASH_NUM; i++) {
+#ifdef PORT
+        extern void Port_FlashDrawMenuArt(void *movie, s32 screen, s32 visible);
+        s32 scope = i == 0 ? 10 : ((i == 1 || i == 3) ? 11 : 12);
+        Port_FlashDrawMenuArt(&gCharSel->flash[i], scope, 1);
+#else
         Flash_Draw(&gCharSel->flash[i]);
+#endif
     }
     Font_FlushAll();
     IconWin_Draw();
+    /* Custom-character inspection uses the full menu page, including item details. */
+#ifdef PORT
+    {
+        extern void Port_ItemPanelDrawMenuArt(s32 side);
+        Port_ItemPanelDrawMenuArt(0);
+        Port_ItemPanelDrawMenuArt(1);
+    }
+#else
     ItemPanel_Draw(0);
     ItemPanel_Draw(1);
+#endif
+#ifdef PORT
+    {
+        extern void Port_ItemHelpDrawMenuArt(s32 item);
+        Port_ItemHelpDrawMenuArt(gCharSel->itemInfo);
+    }
+#else
     ItemHelp_Draw(gCharSel->itemInfo);
+#endif
 }
 
 /* Advances the movies and the two side panels, and drops the "hidden" marks once the movies say so. */

@@ -26,6 +26,13 @@ static s32 sTitleMenuEntriesVisible;
 /* Return the anchor marker for each foreground clip tree. Keep a whole option
    plate together so its backing, icon and label receive the same transform. */
 static s32 FlashClip_MenuArtMarker(const char *name) {
+    if (sMenuArtScreen == 13) {
+        if (strncmp(name, "mc_ability_limit_", 17) == 0) return 0x1B;
+        if (strcmp(name, "mc_select_plate") == 0) return 0x1B;
+        if (strncmp(name, "mc_list_plate_", 14) == 0) return 0x19;
+        if (strcmp(name, "mc_name_plate") == 0 || strcmp(name, "mc_form_plate") == 0 ||
+            strcmp(name, "mc_name_text") == 0 || strcmp(name, "mc_form_text") == 0) return 0x1A;
+    }
     if (sMenuArtScreen == 1) {
         return (strncmp(name, "mc_menu_plate_", 14) == 0 ||
                 strcmp(name, "mc_taikenban") == 0) ? 0x19 : 0;
@@ -101,11 +108,31 @@ static s32 FlashClip_MenuArtMarker(const char *name) {
         }
         if (strncmp(name, "mc_menu_plate_", 14) == 0 || strncmp(name, "mc_mode_", 8) == 0) return 0x1A;
     }
+    if (sMenuArtScreen == 10) {
+        if (strcmp(name, "mc_face_mask_l") == 0 || strcmp(name, "mc_single_chara_l") == 0) return 0x1A;
+        if (strcmp(name, "mc_face_mask_r") == 0 || strcmp(name, "mc_single_chara_r") == 0) return 0x1B;
+        if (strcmp(name, "mc_name_plate_l") == 0 || strcmp(name, "mc_form_plate_l") == 0 ||
+            strcmp(name, "mc_name_text_l") == 0 || strcmp(name, "mc_form_text_l") == 0 ||
+            strcmp(name, "mc_dp_window_l") == 0 || strcmp(name, "mc_dp_max_l") == 0 ||
+            strncmp(name, "mc_dp_total_l_", 14) == 0) return 0x1A;
+        if (strcmp(name, "mc_name_plate_r") == 0 || strcmp(name, "mc_form_plate_r") == 0 ||
+            strcmp(name, "mc_name_text_r") == 0 || strcmp(name, "mc_form_text_r") == 0 ||
+            strcmp(name, "mc_dp_window_r") == 0 || strcmp(name, "mc_dp_max_r") == 0 ||
+            strncmp(name, "mc_dp_total_r_", 14) == 0) return 0x1B;
+        if (strncmp(name, "mc_map_", 7) == 0 || strcmp(name, "mc_bgm_now") == 0 ||
+            strncmp(name, "mc_player_1p_", 13) == 0 || strncmp(name, "mc_time_", 8) == 0 ||
+            strcmp(name, "mc_vs") == 0 || strncmp(name, "mc_yajirusi_", 12) == 0) return 0x19;
+    }
     if (sMenuArtScreen == 8 && strcmp(name, "mc_gil") == 0) return 0x1A;
     return 0;
 }
 
 static s32 FlashShape_MenuArtMarker(s32 image) {
+    if (sMenuArtScreen == 13 && image >= 15 && image <= 18) {
+        /* Original panel: caption 15, slash 16, large digits 17, small digits 18.
+           All four must share one transform, including unparented shapes. */
+        return 0x1B;
+    }
     /* Unparented shapes need the same anchor as their neighbouring clips.
        Main-menu image 42 is the Dragon Ball holder, beside the seven clips. */
     if (sMenuArtScreen == 1 &&
@@ -139,6 +166,7 @@ static s32 FlashShape_MenuArtMarker(s32 image) {
         if (image >= 44 && image <= 46) return 0x19;
         if (image == 47 || image == 48) return 0x1B;
     }
+    if (sMenuArtScreen == 10 && image == 38) return 0x19; /* stage-name backing */
     return 0;
 }
 #endif
@@ -791,6 +819,15 @@ void FlashSlot_Draw(FlashSlot *slot, FlashProp *parent, Flash *flash) {
 #endif
         prop = clip->prop;
 #ifdef PORT
+        if (sMenuArtScreen == 10 && strcmp(clip->name, "mc_map_name") == 0 &&
+            Port_AspectMilli() > 1333 && prop.mtx.m[2] < 0.0f) {
+            /* Blend the centred stage label toward the left page edge as
+               its timeline slides away. At x=-512 the entire label must
+               be outside, rather than parked visibly inside the wide page. */
+            f32 progress = -prop.mtx.m[2] / 512.0f;
+            if (progress > 1.0f) progress = 1.0f;
+            prop.mtx.m[2] -= 256.0f * ((f32)Port_AspectMilli() / 1333.333f - 1.0f) * progress;
+        }
         if (sMenuArtScreen == 7 && strncmp(clip->name, "mc_chara_", 9) == 0 &&
             Port_AspectMilli() > 1333) {
             /* Preserve the left-side entrance, blending into the right
@@ -867,6 +904,16 @@ void FlashSlot_Draw(FlashSlot *slot, FlashProp *parent, Flash *flash) {
             clip->postDraw(clip->postArg);
         }
 #ifdef PORT
+        if ((sMenuArtScreen == 13 || sMenuArtScreen == 14) && menuArt) {
+            extern void Font_FlushAll(void);
+            Font_FlushAll(); /* callback text must use its clip's proportions */
+        }
+        if (sMenuArtScreen == 10 &&
+            (strcmp(clip->name, "mc_name_text_l") == 0 || strcmp(clip->name, "mc_form_text_l") == 0 ||
+             strcmp(clip->name, "mc_name_text_r") == 0 || strcmp(clip->name, "mc_form_text_r") == 0)) {
+            extern void Font_FlushAll(void);
+            Font_FlushAll();
+        }
         if (menuArt && --sMenuArtDrawDepth == 0) {
             Port_GsMarker(0x13); /* background clips retain their previous layout */
         }
@@ -1322,12 +1369,19 @@ void Port_FlashDrawMenuArt(void *movie, s32 screen, s32 titleMenuVisible) {
     }
     sMenuArtScreen = screen;
     sTitleMenuEntriesVisible = titleMenuVisible;
-    if (screen == 4) {
-        /* Dialog window, decorations and choice plates animate as one group. */
+    if (screen == 11 || screen == 12) {
+        Port_GsMarker(screen == 11 ? 0x1A : 0x1B);
+    }
+    if (screen == 4 || screen == 14) {
+        /* Dialogs and the complete item-detail base/content share one centre transform. */
         Port_GsMarker(0x19);
     }
     Flash_Draw((Flash *)movie);
-    if (screen == 4) {
+    if (screen == 14) {
+        extern void Font_FlushAll(void);
+        Font_FlushAll(); /* Item-detail callbacks queue text for the same centred page. */
+    }
+    if (screen == 4 || screen == 11 || screen == 12 || screen == 14) {
         Port_GsMarker(0x13);
     }
     sMenuArtScreen = old;
@@ -1690,6 +1744,38 @@ void FlashShape_Draw(FlashShape *shape, FlashProp *prop, Flash *flash) {
         FlashDraw_TransformQuad(pq, &shape->mtx, &shape->cx, prop, flash->ofs);
 #ifdef PORT
         markImage = !sMenuArtDrawDepth ? FlashShape_MenuArtMarker(rec.image) : 0;
+        if (sMenuArtScreen == 10 && rec.image == 38 && markImage && Port_AspectMilli() > 1333) {
+            FlashClip *name = FlashClipList_FindByName(flash->clips, "mc_map_name");
+            if (name != NULL && name->prop.mtx.m[2] < 0.0f) {
+                /* This backing is a root shape, outside the name clip's
+                   tree. Follow the same exit correction as its text. */
+                f32 progress = -name->prop.mtx.m[2] / 512.0f;
+                f32 shift;
+                s32 corner;
+                if (progress > 1.0f) progress = 1.0f;
+                shift = 256.0f * ((f32)Port_AspectMilli() / 1333.333f - 1.0f) * progress;
+                for (corner = 0; corner < 4; corner++) pq->pt[corner][0] -= shift;
+            }
+        }
+        if (sMenuArtScreen == 10 && Port_AspectMilli() > 1333 &&
+            shape->id == 21 && rec.image == 21 && flash->root->depths >= 14 &&
+            (flash->root->slots[12].shape == shape || flash->root->slots[13].shape == shape)) {
+            /* The original centre divider already has two copies. Attach
+               one to each portrait's inner edge instead of overlapping them. */
+            s32 left = flash->root->slots[13].shape == shape;
+            FlashClip *portrait = FlashClipList_FindByName(flash->clips,
+                left ? "mc_single_chara_l" : "mc_single_chara_r");
+            if (portrait != NULL && (portrait->flags & FLASH_CLIP_VISIBLE)) {
+                f32 edge = portrait->prop.mtx.m[2] + (left ? 256.0f : 0.0f) + (f32)flash->ofs[0];
+                f32 centre = (pq->pt[0][0] + pq->pt[3][0]) * 0.5f;
+                s32 corner;
+                for (corner = 0; corner < 4; corner++) pq->pt[corner][0] += edge - centre;
+                markImage = left ? 0x1A : 0x1B;
+            } else {
+                continue;
+            }
+        }
+
         if (sMenuArtScreen == 5 && (sMenuArtDrawDepth || markImage)) {
             s32 left = 1;
             s32 right = 1;
@@ -1703,9 +1789,9 @@ void FlashShape_Draw(FlashShape *shape, FlashProp *prop, Flash *flash) {
             }
             if (left || right) continue;
         }
-        /* Dialog texture 0 is the screen dimmer (Dialog_Draw can hide it
-           independently). It must fill the wide page, unlike the window. */
-        fullWidthDialogDim = sMenuArtScreen == 4 && rec.image == 0;
+        /* Dialogs and item details use image 0 as the screen dimmer.
+           Keep it wide while their windows retain centred proportions. */
+        fullWidthDialogDim = (sMenuArtScreen == 4 || sMenuArtScreen == 14) && rec.image == 0;
         if (fullWidthDialogDim) {
             Port_GsMarker(0x13);
         }

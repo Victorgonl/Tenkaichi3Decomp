@@ -99,6 +99,10 @@ void ItemPanel_Term(s32 side) {
     }
 }
 
+#ifdef PORT
+static s32 sItemPanelMenuArt;
+#endif
+
 /* Draws the panel: set name, character and form names, slots used / available, and the eight item rows. */
 void ItemPanel_Draw(s32 side) {
     MFlashRef ref;
@@ -206,9 +210,39 @@ void ItemPanel_Draw(s32 side) {
             TextBox_AttachLine(flash, &ref, 0, 0, p->item.id[i] - 1, &p->line[i]);
         }
     }
+#ifdef PORT
+    if (sItemPanelMenuArt) {
+        extern void Port_FlashDrawMenuArt(void *movie, s32 screen, s32 visible);
+        Port_FlashDrawMenuArt(flash, 13, 1);
+    } else
+#endif
     Flash_Draw(flash);
     Font_FlushAll();
 }
+
+#ifdef PORT
+/* Opt in only the Versus inspection panel; other callers retain their layout. */
+void Port_ItemPanelDrawMenuArt(s32 side) {
+    extern s32 Port_TitleMainChars43(void);
+    extern s32 Port_Menus43(void);
+    extern void TextBox_SetUnk50(MTextBox *box, s32 value);
+    extern void TextBox_SetUnkC(MTextBox *box, s32 x, s32 y);
+    ItemPanel *p = gItemPanel[side];
+    MTextBox name = p->name;
+    MTextBox form = p->form;
+    if (Port_TitleMainChars43() && !Port_Menus43()) {
+        TextBox_SetUnk50(&p->name, 2);
+        TextBox_SetUnkC(&p->name, 248, 0);
+        TextBox_SetUnk50(&p->form, 2);
+        TextBox_SetUnkC(&p->form, 248, 0);
+    }
+    sItemPanelMenuArt = 1;
+    ItemPanel_Draw(side);
+    sItemPanelMenuArt = 0;
+    p->name = name;
+    p->form = form;
+}
+#endif
 
 /* Steps the movie; lights the cursor plates on the first frame; ends the closing animation. */
 void ItemPanel_Update(s32 side) {

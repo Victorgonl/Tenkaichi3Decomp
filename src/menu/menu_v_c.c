@@ -60,6 +60,10 @@ void ItemHelp_Term(void) {
     }
 }
 
+#ifdef PORT
+static s32 sItemHelpMenuArt;
+#endif
+
 /* Advances and draws the page for one item (0-based index into the item table). */
 void ItemHelp_Draw(s32 item) {
     MFlashRef ref;
@@ -106,9 +110,23 @@ void ItemHelp_Draw(s32 item) {
     Flash_FindLabel(flash, NULL, "mc_item_details", &ref);
     Flash_ClipSetTex(flash, &ref, gItemHelp->items[item].picture);
 
+#ifdef PORT
+    if (sItemHelpMenuArt) {
+        extern void Port_FlashDrawMenuArt(void *movie, s32 screen, s32 visible);
+        Port_FlashDrawMenuArt(&gItemHelp->flash[0], 14, 1);
+    } else
+#endif
     Flash_Draw(&gItemHelp->flash[0]);
     Font_FlushAll();
 }
+
+#ifdef PORT
+void Port_ItemHelpDrawMenuArt(s32 item) {
+    sItemHelpMenuArt = 1;
+    ItemHelp_Draw(item);
+    sItemHelpMenuArt = 0;
+}
+#endif
 
 /* Plays the page's opening animation. */
 void ItemHelp_Open(void) {
