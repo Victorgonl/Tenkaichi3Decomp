@@ -1,4 +1,9 @@
 #include "common.h"
+#ifdef PORT
+extern void Flash_PortStageBadge(void *flash, void *ref);
+extern s32 gPortNetStagePicker;
+extern int Port_NetSession(void);
+#endif
 #include "menu/menu_d.h"
 #include "sys/common.h"
 #include "sys/pad.h"
@@ -1183,6 +1188,19 @@ void CharSel_Draw(void) {
     }
 
     for (i = 0; i < CHARSEL_FLASH_NUM; i++) {
+#ifdef PORT
+        if (Port_NetSession()) {
+            s32 badge;
+            for (badge = 0; badge < 7; badge++) {
+                if (badge == 6) sprintf(name, "mc_player_1p_bgm");
+                else sprintf(name, "mc_player_1p_%02d", badge);
+                Flash_FindLabel(&gCharSel->flash[i], NULL, name, &ref);
+                if (ref.id >= 0) {
+                    Flash_PortStageBadge(&gCharSel->flash[i], &ref);
+                }
+            }
+        }
+#endif
         Flash_Draw(&gCharSel->flash[i]);
     }
     Font_FlushAll();
@@ -1961,11 +1979,44 @@ s32 CharSel_Run(s32 section) {
                     gPad[side].gamePressed |= 0x200;
                     botWait = 0;
                 }
-            } else if (Port_NetBotSide() == 0 && (gCharSel->flags & CHARSEL_STAGE_PHASE) &&
+            } else if (Port_NetBotSide() == gPortNetStagePicker && (gCharSel->flags & CHARSEL_STAGE_PHASE) &&
                        gCharSel->stage->state == CHARSEL_ST_STAGE && ++botWait >= 45) {
-                gPad[0].gamePressed |= 0x200;
+                /* Use the game's Random stage cell so both peers draw the same unlocked stage. */
+                {
+                    s32 cell;
+                    for (cell = 0; cell < gCharSel->stageCount; cell++) {
+                        if (gCharSel->stageIds[cell] == CHARSEL_STAGE_RANDOM) {
+                            gCharSel->stage->col = cell % 6;
+                            gCharSel->stage->row = cell / 6;
+                            gCharSel->stage->stage = CHARSEL_STAGE_RANDOM;
+                            CharSel_SetStageChips();
+                            break;
+                        }
+                    }
+                }
+                {
+                    s32 song;
+                    for (song = 0; song < gCharSel->bgmCount; song++) {
+                        if (gCharSel->bgmIds[song] == CHARSEL_BGM_RANDOM) {
+                            gCharSel->stage->bgm = song;
+                            gCharSel->stage->bgmPlaying = song;
+                            break;
+                        }
+                    }
+                }
+                gPad[gPortNetStagePicker].gamePressed |= 0x200;
                 botWait = 0;
             }
+#endif
+#ifdef PORT
+            if (Port_NetSession() && gPortNetStagePicker == 1 && (gCharSel->flags & CHARSEL_STAGE_PHASE)) {
+                /* The native stage/music screen reads pad 0. Route only that phase to the winner. */
+                Pad host = gPad[0];
+                gPad[0] = gPad[1];
+                CharSel_Input(&result);
+                gPad[1] = gPad[0];
+                gPad[0] = host;
+            } else
 #endif
             CharSel_Input(&result);
         }

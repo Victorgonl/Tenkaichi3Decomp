@@ -323,6 +323,9 @@ void PauseMenu_Init(void) {
            out, later ones find nothing); the program is started afresh after a session, so offline has them. */
         extern int Port_NetActive(void);
         if (Port_NetActive()) {
+            /* Character selection is reached through mutual post-battle rematch requests. */
+            PauseMenu_PortRemove(&gPauseMenuVersus, 0xD);
+            PauseMenu_PortRemove(&gPauseMenuVersus, 0xF);
             PauseMenu_PortRemove(&gPauseMenuResultVersus, 0xE);
             PauseMenu_PortRemove(&gPauseMenuResultVersus, 0x18);
             PauseMenu_PortRemove(&gPauseMenuResultVersus, 0x17);

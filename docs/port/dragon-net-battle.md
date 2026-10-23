@@ -282,3 +282,97 @@ title artwork and selected Menu font headings already match it; edited-title
 fallback text now uses that measured height through the same title animation.
 Text follows each bar's entrance motion. The first focused entry begins the
 effect after the page's rows finish entering.
+
+## Online battle results
+
+A completed online battle fades out and tears down its battle scene before opening
+results in the Dragon Net menu. The results reuse the searching-opponent screen's
+clock/space background, animated mode heading (its entrance starts after fade-in,
+matching the other Dragon Net pages; its source movie is sampled explicitly because
+online boot skips the main menu), two player plates, VS mark, native
+name rendering, and record labels. Results advance and attach the message window’s
+text clip before drawing names, even though the message box itself is hidden. The session's battle and win/loss totals update
+between rematches. Record columns share render dimensions. All three use identical glyphs and UV bounds from the record digit sheet. Wins uses
+a grayscale base recolored with the pale-coral to salmon fill sampled from the Wins
+label in texture 042, avoiding a cyan cast. Digit
+tint channels stay at or below GS neutral (0x80) to avoid amplifying brightness. The extracted Wii resource 3 supplies the WIN badge (texture 23),
+starburst/request badge (25), button lettering (3/4), and selection bars (17/18). Localized Wii
+button sheets follow the same language lookup as the other menu artwork.
+
+The in-battle online pause menu omits Return to Character Select (entry 0xD) and
+Return to Main Menu (entry 0xF);
+character selection is reached through mutual post-battle rematch requests.
+
+Use left/right and Cross/A to choose Rematch Request or End Battle. Each request
+shows its 1P/2P badge above its button. Both players must request a rematch. Once both agree, choices lock for three seconds
+(180 menu frames), then the menu fades back to the stock single/team character
+selection via battle-result reason 0x10. Players choose characters and a stage again;
+the online session, lobby rules, and session records are retained.
+Disabled Rematch uses the Dragon Net menu’s opaque RGB 0x58 tint on both its bar
+and lettering, rather than fading their opacity.
+An End Battle choice cancels requests, disables rematch, and keeps the results open
+until both players acknowledge End Battle. Their badges appear above that button.
+This sends a normal End Battle goodbye reason, so neither player sees the
+“other player left the match” dialog. Unexpected disconnects keep their existing messages.
+WIN and confirmed player badges pulse together with their starburst backings in a
+90-frame loop (1.5 seconds), scaling by ±6% around fixed centers. The shared
+starburst retains the extracted Wii texture’s original transparency and yellow outline.
+The online bot waits five seconds (300 menu frames), then always requests a rematch after losing; otherwise it chooses once with an
+80% chance of Rematch Request and 20% End Battle.
+If the opponent ends, it acknowledges End Battle after its initial wait.
+
+The sequence change is in `src/battle/btl_seq.c`; `src/battle/battle.c` runs the menu
+after battle teardown, then returns to the ordinary menu flow for character selection. The screen and synchronized decision
+state are in `src/menu/port_tbo.c`, with no results overlay or input handler in the
+battle HUD. Existing synchronized controller input carries the choices. Offline
+results retain the stock flow.
+
+Validation: port compile/link and decision tests pass, including the 300-frame bot
+wait, request cancellation, and mutual rematch. A debugger smoke test initializes
+and tears down a battle, then runs twenty result-menu frames. An offscreen OpenGL
+render was inspected for the Wii backdrop, title, plates, records, WIN artwork, and
+button sheets. Full two-client rematch/disconnect testing remains outstanding.
+
+Result button lettering follows Menu font using the same idle/selected rasterizer
+and disabled tint as Dragon Net entries. Original retains the Wii lettering sheets;
+translated or edited labels without Wii artwork use the font fallback. The labels
+are editable as `dragon-net/results/rematch` and `dragon-net/results/end` in the
+port translation catalog. Default text supports English, Spanish, German, French,
+Italian, and Portuguese. Long labels fit within the button.
+
+An incomplete room code shows “A Room Code has 6 letters and numbers.” in the same
+dismissible dialog as connection loss. This applies to both room-code entry screens;
+the keypad waits until Cross/A or Triangle closes the dialog, preserving the code.
+
+A room code not found by matchmaking uses the same dismissible dialog, retaining
+the entered code in the message “Room with code ABC123 not found.”
+
+These message dialogs play the memory-card window’s native opening animation and
+opening sound, then accept dismissal once the window is fully open.
+
+Giru and his eye glow slide up together from below the viewport during dialog
+opening, easing into the idle bob over 24 menu frames. Closing slides him down.
+
+When the online bot is the stage chooser, it selects the native Random stage cell for both single
+and team/DP battles. The game chooses an unlocked stage using synchronized randomness.
+When a human is the stage chooser, stage selection stays under that human’s control.
+
+Results use the Dragon Net cursor sound when changing buttons and confirmation
+sound when the local player submits a new rematch request or End Battle decision.
+Repeated confirmations of an existing request do not replay the sound.
+
+Stage and music selection belongs to the host in the first match, then the previous
+match’s winner. A draw retains the previous chooser. Character selection stays
+independent. A winning bot also uses Random stage when it is the next chooser.
+
+Stage and music chooser badges display 1P or 2P to match the current chooser.
+
+Chooser markers use the extracted Wii 1P/2P badge drawn in the native marker’s
+transformed shape bounds. The marker timeline continues to position and animate it;
+its fixed 1P artwork is replaced rather than cropped as a presumed two-player atlas.
+
+The bot selects the native Random music entry alongside Random stage whenever it
+controls the stage/music choice, in both single and team/DP battles.
+
+Stage/music chooser badges render at 75% of their native bounds, centered on the
+same position for both 1P and 2P.

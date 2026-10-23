@@ -651,6 +651,9 @@ void FlashSlot_Draw(FlashSlot *slot, FlashProp *parent, Flash *flash) {
         if (clip->preDraw != NULL) {
             clip->preDraw(clip->preArg);
         }
+#ifdef PORT
+        if (!(clip->flags & 0x40000000))
+#endif
         FlashTl_Draw(&clip->tl, &prop);
         if (clip->drawOver != NULL) {
             clip->drawOver(clip->overArg, &prop);
@@ -1798,3 +1801,50 @@ void FlashClipList_Stop(FlashClipList *list, FlashRef *ref) {
         }
     }
 }
+
+#ifdef PORT
+#include "menu/port_screen.h"
+#include "menu/tbo_art.h"
+extern s32 gPortNetStagePicker;
+static void Flash_PortDrawStageBadge(void *arg, FlashProp *prop) {
+    FlashClip *clip = arg;
+    Flash *flash = clip->tl.owner;
+    s32 depth;
+    for (depth = 0; depth < clip->tl.depths; depth++) {
+        FlashShape *shape = clip->tl.slots[depth].shape;
+        if (shape != NULL) {
+            FlashShapeQuad rec;
+            FlashQuad q;
+            u8 *data = Flash_GetRecord(flash->data, 4, shape->id);
+            memset(&q, 0, sizeof(q));
+            memcpy(&rec, data + 10, sizeof(rec));
+            q.pt[0][0] = rec.x0; q.pt[0][1] = rec.y0;
+            q.pt[1][0] = rec.x1; q.pt[1][1] = rec.y0;
+            q.pt[2][0] = rec.x0; q.pt[2][1] = rec.y1;
+            q.pt[3][0] = rec.x1; q.pt[3][1] = rec.y1;
+            q.rgba[0] = q.rgba[1] = q.rgba[2] = 255; q.rgba[3] = 128;
+            FlashDraw_TransformQuad(&q, &shape->mtx, &shape->cx, prop, flash->ofs);
+            {
+                f32 cx = (q.pt[0][0] + q.pt[3][0]) * 0.5f;
+                f32 cy = (q.pt[0][1] + q.pt[3][1]) * 0.5f;
+                q.pt[0][0] = cx + (q.pt[0][0] - cx) * 0.75f;
+                q.pt[0][1] = cy + (q.pt[0][1] - cy) * 0.75f;
+                q.pt[3][0] = cx + (q.pt[3][0] - cx) * 0.75f;
+                q.pt[3][1] = cy + (q.pt[3][1] - cy) * 0.75f;
+            }
+            Ps_SpriteScreen(TBO_WII_VS_PLAYERS, q.pt[0][0], q.pt[0][1], q.pt[3][0], q.pt[3][1],
+                            0, gPortNetStagePicker * 0.5f, 1, (gPortNetStagePicker + 1) * 0.5f,
+                            PS_PLAIN, q.rgba[3]);
+            return;
+        }
+    }
+}
+void Flash_PortStageBadge(Flash *flash, FlashRef *ref) {
+    if (ref->index >= 0) {
+        FlashClip *clip = &flash->clips->items[ref->index];
+        clip->flags |= 0x40000000; /* draw only the replacement, retaining the native timeline */
+        clip->drawOver = Flash_PortDrawStageBadge;
+        clip->overArg = clip;
+    }
+}
+#endif

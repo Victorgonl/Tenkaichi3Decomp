@@ -1,4 +1,9 @@
 #include "common.h"
+#ifdef PORT
+extern void Flash_PortStageBadge(void *flash, void *ref);
+extern s32 gPortNetStagePicker;
+extern int Port_NetSession(void);
+#endif
 #include "menu/menu_e.h"
 #include "menu/menu_f.h"
 #include "sys/pad.h"
@@ -1334,6 +1339,19 @@ void TeamSel_Draw(void) {
         }
     }
     for (i = 0; i < TEAMSEL_FLASH_NUM; i++) {
+#ifdef PORT
+        if (Port_NetSession()) {
+            s32 badge;
+            for (badge = 0; badge < 7; badge++) {
+                if (badge == 6) sprintf(name, "mc_player_1p_bgm");
+                else sprintf(name, "mc_player_1p_%02d", badge);
+                Flash_FindLabel(&gTeamSel->flash[i], NULL, name, &ref);
+                if (ref.id >= 0) {
+                    Flash_PortStageBadge(&gTeamSel->flash[i], &ref);
+                }
+            }
+        }
+#endif
         Flash_Draw(&gTeamSel->flash[i]);
     }
     Font_FlushAll();
@@ -2312,11 +2330,43 @@ s32 TeamSel_Run(s32 section) {
                 }
                 botWait = 0;
             }
-        } else if (Port_NetBotSide() == 0 && (gTeamSel->flags & TEAMSEL_STAGE) &&
+        } else if (Port_NetBotSide() == gPortNetStagePicker && (gTeamSel->flags & TEAMSEL_STAGE) &&
                    gTeamSel->stage->state == TEAMSEL_STAGE_GRID && ++botWait >= 45) {
-            gPad[0].gamePressed |= 0x200;
+            /* Use the game's Random stage cell so both peers draw the same unlocked stage. */
+            {
+                s32 cell;
+                for (cell = 0; cell < gTeamSel->stageCount; cell++) {
+                    if (gTeamSel->stageIds[cell] == TS_STAGE_RANDOM) {
+                        gTeamSel->stage->col = cell % TS_STAGE_COLS;
+                        gTeamSel->stage->row = cell / TS_STAGE_COLS;
+                        gTeamSel->stage->stage = TS_STAGE_RANDOM;
+                        TeamSel_SetStageChips();
+                        break;
+                    }
+                }
+            }
+            {
+                s32 song;
+                for (song = 0; song < gTeamSel->bgmCount; song++) {
+                    if (gTeamSel->bgmIds[song] == TS_BGM_RANDOM) {
+                        gTeamSel->stage->bgm = song;
+                        break;
+                    }
+                }
+            }
+            gPad[gPortNetStagePicker].gamePressed |= 0x200;
             botWait = 0;
         }
+#endif
+#ifdef PORT
+        if (Port_NetSession() && gPortNetStagePicker == 1 && (gTeamSel->flags & TEAMSEL_STAGE)) {
+            /* The native stage/music screen reads pad 0. Route only that phase to the winner. */
+            Pad host = gPad[0];
+            gPad[0] = gPad[1];
+            TeamSel_Input(&result);
+            gPad[1] = gPad[0];
+            gPad[0] = host;
+        } else
 #endif
         TeamSel_Input(&result);
     }

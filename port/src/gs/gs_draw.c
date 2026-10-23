@@ -709,8 +709,14 @@ static GsTex tbo_texture(uint32_t id) {
         else if (id == TBO_WII_VS_LINES) { wiiSection = 1; wiiResource = 3; wiiTexture = 21; }
         else if (id == TBO_WII_VS_PLAYERS) { wiiSection = 1; wiiResource = 3; wiiTexture = 22; }
         else if (id == TBO_WII_VS_DIGITS) { wiiSection = 1; wiiResource = 3; wiiTexture = 38; }
-        else if (id == TBO_WII_VS_WINS_DIGITS) { wiiSection = 1; wiiResource = 3; wiiTexture = 24; }
+        else if (id == TBO_WII_VS_WINS_DIGITS) { wiiSection = 1; wiiResource = 3; wiiTexture = 38; }
         else if (id == TBO_WII_VS_RECORD_LABELS) { wiiSection = 1; wiiResource = 3; wiiTexture = 42; }
+        else if (id == TBO_WII_RESULT_WIN) { wiiSection = 1; wiiResource = 3; wiiTexture = 23; }
+        else if (id == TBO_WII_RESULT_BADGE) { wiiSection = 1; wiiResource = 3; wiiTexture = 25; }
+        else if (id == TBO_WII_RESULT_LABEL_IDLE) { wiiSection = 1; wiiResource = 3; wiiTexture = 3; }
+        else if (id == TBO_WII_RESULT_LABEL_SELECTED) { wiiSection = 1; wiiResource = 3; wiiTexture = 4; }
+        else if (id == TBO_WII_RESULT_BAR_BLUE) { wiiSection = 1; wiiResource = 3; wiiTexture = 17; }
+        else if (id == TBO_WII_RESULT_BAR_GOLD) { wiiSection = 1; wiiResource = 3; wiiTexture = 18; }
         else if (id == TBO_WII_DISCONNECT_GIRU) { wiiResource = 10; wiiPart = 0; wiiTexture = 1; }
         else if (id == TBO_WII_DISCONNECT_GIRU_EYE) { wiiResource = 10; wiiPart = 0; wiiTexture = 2; }
         else { wiiResource = 5; wiiTexture = 3; }
@@ -722,7 +728,8 @@ static GsTex tbo_texture(uint32_t id) {
             id == TBO_WII_NAME_TITLE || id == TBO_WII_NAME_BUTTON_LABELS ||
             id == TBO_WII_BATTLE_TITLE || id == TBO_WII_CUSTOM_TITLE || id == TBO_WII_NORMAL_TITLE ||
             id == TBO_WII_BATTLE_LABEL_IDLE || id == TBO_WII_BATTLE_LABEL_SELECTED ||
-            id == TBO_WII_BATTLE_POINT_LABEL || id == TBO_WII_VS_RECORD_LABELS) {
+            id == TBO_WII_BATTLE_POINT_LABEL || id == TBO_WII_VS_RECORD_LABELS ||
+            id == TBO_WII_RESULT_LABEL_IDLE || id == TBO_WII_RESULT_LABEL_SELECTED) {
             MenuTranslation_Ensure();
             const char *selected = MenuTranslation_Locale();
             const char *locale = "en";
@@ -809,6 +816,16 @@ static GsTex tbo_texture(uint32_t id) {
             uint32_t imageAlpha = c[3];
             uint32_t a;
             uint32_t r = c[0], g = c[1], b = c[2];
+            /* Share the record glyph shapes, but remove their baked cyan before the Wins tint. */
+            if (id == TBO_WII_VS_WINS_DIGITS) {
+                uint32_t gray = (r * 77 + g * 150 + b * 29 + 128) >> 8;
+                uint32_t row = y % 32;
+                if (row > 26) row = 26;
+                /* Resource 3 / texture 42's Wins fill: pale coral to deep salmon. */
+                r = gray * (254 - 37 * row / 26) / 255;
+                g = gray * (207 - 98 * row / 26) / 255;
+                b = gray * (202 - 107 * row / 26) / 255;
+            }
             /* These arrow PNGs use 127 for their solid pixels. Preserve the antialiased edge while
                bringing the chevron itself up to full opacity over the green selection bar. */
             if (languageArt && id != TBO_LANG_BG) {

@@ -30,7 +30,7 @@ def main() -> None:
     startup.add_argument("--join-code", metavar="CODE", help="join a Friend Battle room code immediately")
     startup.add_argument("--generate-code", action="store_true", help="host a Friend Battle room and print its code")
     parser.add_argument("--host", default="127.0.0.1", help="address of the human player's game")
-    parser.add_argument("--name", default="Sparking Bot", help="name shown to the other player")
+    parser.add_argument("--name", default="SparkingBot", help="name shown to the other player")
     parser.add_argument("--level", type=int, choices=range(1, 6), default=3,
                         metavar="1-5", help="CPU difficulty, 1 easiest and 5 hardest (default: 3)")
     parser.add_argument("--game", type=Path, default=ROOT / "port/build/bt3_64", help="built game executable")

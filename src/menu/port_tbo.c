@@ -10,6 +10,7 @@ extern s32 File_IsPartitionLoaded(s32 pt);
 static void Tb_DisconnectDialogTerm(void);
 static s32 Tb_DisconnectDialogStartClose(void);
 static s32 Tb_DisconnectDialogIsClosed(void);
+static s32 Tb_DisconnectDialogIsOpen(void);
 /*
  * PC only: "Tenkaichi Budokai Online", the main menu's item 11 (menu_a.c). The port's screen mode (port_screen.c)
  * runs this screen. Its own look for online play, after the mockups of online_design: every picture, piece,
@@ -45,10 +46,12 @@ extern s32 IconWin_PortHeadingMotion(s32 frame, f32 *iconDx, f32 *iconDy, s32 *i
                                      f32 *iconScaleX, f32 *iconScaleY, f32 *titleDx, f32 *titleDy,
                                      s32 *titleAlpha, f32 *titleScaleX, f32 *titleScaleY);
 extern void MsgWin_PortDrawString(u16 *str); /* (battle/view_a_b.c) the box with a line of ours, in the game's font */
+extern void MsgWin_PortPrepareNativeNames(void);
 extern void MsgWin_PortDrawNativeName(const char *name, s32 x0, s32 y0, s32 x1, s32 y1);
 extern s32 MsgWin_PortLineRoom(s32 right);
 extern void MsgWin_PortSameTop(void);
 extern s32 Port_WiiArtAvailable(void);
+extern s32 PortTbo_ResultTextCopy(s32 side, char *out, s32 capacity);
 extern s32 PortTbo_WiiTextCopy(s32 index, char *out, s32 capacity);
 extern s32 PortTbo_DisconnectTextCopy(s32 reason, char *out, s32 capacity);
 extern s32 PortTbo_WiiUseFont(void);
@@ -272,6 +275,7 @@ extern const char *Port_LobbyPeerName(void);
 extern int Port_LobbyPoll(void);
 extern void Port_LobbyCancel(void);
 extern void Port_LobbyLaunch(void);
+extern int Port_NetBattleMenuStyle(int style);
 extern int Port_NetSessionsEnded(void); /* gs/net.c */
 extern int Port_NetTakeEndReason(void); /* 1: peer left; 2: connection lost */
 extern const char *Port_LobbyCode(void);
@@ -375,6 +379,7 @@ typedef struct TboScreen {
     s32 wiiFriend;       /* room-code battle, rather than a public/LAN search */
     s32 wiiBattleT;     /* battle-page entrance, after its fade in */
     s32 wiiNextMode;    /* pending Wii page switch, after fade out */
+    s32 resultBattles, resultWins[2];
     s32 wiiSubCur;
     s32 modeT;
     s32 leaving;
@@ -404,6 +409,7 @@ typedef struct TboScreen {
     s32 disconnectReason; /* dismissible message after an interrupted Wii match */
     s32 disconnectClosing;
     s32 disconnectCloseFrames;
+    s32 disconnectOpenFrames;
     char disconnectLine[128];
     s32 waitBack;       /* the screen a cancelled search goes back to */
     /* Quick Match */
@@ -841,9 +847,31 @@ static void Tb_ShowDisconnect(s32 reason) {
     sTb->disconnectReason = reason;
     sTb->disconnectClosing = 0;
     sTb->disconnectCloseFrames = 0;
+    sTb->disconnectOpenFrames = 0;
     if (!PortTbo_DisconnectTextCopy(reason, sTb->disconnectLine, sizeof(sTb->disconnectLine)))
         Ps_Copy(sTb->disconnectLine, reason == 1 ? "The other player left the match."
                                                 : "Connection lost.", sizeof(sTb->disconnectLine));
+}
+
+static void Tb_ShowRoomCodeMessage(void) {
+    sTb->disconnectReason = 3; /* validation message, using the same dismissible dialog */
+    sTb->disconnectClosing = 0;
+    sTb->disconnectCloseFrames = 0;
+    sTb->disconnectOpenFrames = 0;
+    Ps_Copy(sTb->disconnectLine, "A Room Code has 6 letters and numbers.", sizeof(sTb->disconnectLine));
+}
+
+static void Tb_ShowLobbyError(void) {
+    const char *line = Port_LobbyError();
+    if (strncmp(line, "Room with code", sizeof("Room with code") - 1) == 0) {
+        sTb->disconnectReason = 3;
+        sTb->disconnectClosing = 0;
+        sTb->disconnectCloseFrames = 0;
+        sTb->disconnectOpenFrames = 0;
+        Ps_Copy(sTb->disconnectLine, line, sizeof(sTb->disconnectLine));
+    } else {
+        Tb_Note((char *)line);
+    }
 }
 
 /* What the search says (each frame on the screens that wait): the rival came (the match starts), or it failed.
@@ -874,7 +902,7 @@ static s32 Tb_SearchNews(void) {
     }
     if (state <= 0 && !sTb->found) {
         if (state == -3) {
-            Tb_Note((char *)Port_LobbyError());
+            Tb_ShowLobbyError();
         } else if (state == -4) {
             Tb_Note("THE TWO GAMES COULD NOT REACH EACH OTHER, EVEN THROUGH THE RELAY");
         } else if (state < 0) {
@@ -1182,7 +1210,7 @@ static void Tb_WiiUpdate(s32 live) {
             Tb_DisconnectDialogTerm();
             sTb->disconnectReason = 0;
             sTb->disconnectClosing = 0;
-        } else if (!sTb->disconnectClosing && live &&
+        } else if (!sTb->disconnectClosing && live && Tb_DisconnectDialogIsOpen() &&
                    (pad->gamePressed & (PADG_CROSS | PADG_TRIANGLE))) {
             if (Tb_DisconnectDialogStartClose()) {
                 sTb->disconnectClosing = 1;
@@ -1212,7 +1240,7 @@ static void Tb_WiiUpdate(s32 live) {
                 sTb->ended = Port_NetSessionsEnded();
                 Snd_PlaySe(1, 1);
             } else if (state <= 0) {
-                if (state == -3) Tb_Note((char *)Port_LobbyError());
+                if (state == -3) Tb_ShowLobbyError();
                 else if (state == -4) Tb_Note("THE TWO GAMES COULD NOT REACH EACH OTHER");
                 else if (state < 0) Tb_Note("THE ROOM COULD NOT BE OPENED");
                 Port_LobbyCancel();
@@ -1223,6 +1251,7 @@ static void Tb_WiiUpdate(s32 live) {
             sTb->foundAt = sTb->frames;
         } else if (sTb->foundAt >= 0 && sTb->frames - sTb->foundAt >= 180) {
             Tb_SetMode(TB_WAIT);
+            Port_NetBattleMenuStyle(sTb->wiiNormalBattle | (sTb->wiiFriend << 1));
             Port_LobbyLaunch();
             return;
         }
@@ -1546,7 +1575,7 @@ static void Tb_JoinTry(void) {
         else Tb_BeginSearch(0);
     } else {
         Snd_PlaySe(1, 2);
-        Tb_Note("A ROOM CODE HAS SIX LETTERS AND NUMBERS");
+        Tb_ShowRoomCodeMessage();
     }
 }
 
@@ -1766,7 +1795,7 @@ static void Tb_WiiNameUpdate(s32 live) {
     if (done == 1) {
         if (sTb->mode == TB_WII_FRIEND_CODE) {
             if (sTb->typedLen != CODE_LEN) {
-                Tb_Note("A ROOM CODE HAS SIX LETTERS AND NUMBERS");
+                Tb_ShowRoomCodeMessage();
                 Snd_PlaySe(1, 2);
                 return;
             }
@@ -2308,11 +2337,20 @@ static void Tb_WiiVsRecord(f32 top, s32 second) {
     for (i = 0; i < 3; i++) {
         s32 wins = i == 1;
         f32 x = column[i];
-        Ps_SpriteScreen(wins ? TBO_WII_VS_WINS_DIGITS : TBO_WII_VS_DIGITS,
-                        x, top + 70.0f, x + 18.0f, top + 96.0f,
-                        0.0f, 0.0f, wins ? 20.0f / 128.0f : 26.0f / 128.0f, 0.25f,
-                        wins ? Ps_Rgba(0xFF, 0xCB, 0xA8, 0x80)
-                             : i == 0 ? Ps_Rgba(0xA0, 0xF0, 0xB0, 0x80) : PS_PLAIN, 0x80);
+        s32 value = i == 0 ? sTb->resultBattles : i == 1 ? sTb->resultWins[second]
+                                                                 : sTb->resultWins[!second];
+        s32 place = value >= 100 ? 100 : value >= 10 ? 10 : 1;
+        f32 dx = x - (place == 100 ? 24.0f : place == 10 ? 12.0f : 0.0f);
+        for (; place; place /= 10, dx += 12.0f) {
+            s32 digit = (value / place) % 10;
+            f32 u = (f32)(digit % 4) * 0.25f;
+            f32 v = (f32)(digit / 4) * 0.25f;
+            Ps_SpriteScreen(wins ? TBO_WII_VS_WINS_DIGITS : TBO_WII_VS_DIGITS,
+                            dx, top + 70.0f, dx + 18.0f, top + 96.0f,
+                            u, v, u + 26.0f / 128, v + 0.25f,
+                            wins ? PS_PLAIN
+                                 : i == 0 ? Ps_Rgba(0x50, 0x78, 0x58, 0x80) : PS_PLAIN, 0x80);
+        }
         Ps_SpriteScreen(TBO_WII_VS_RECORD_LABELS,
                         x + 18.0f, top + 70.0f, x + 98.0f, top + 102.0f,
                         0.0f, (f32)i * 0.25f, 80.0f / 128.0f, (f32)(i + 1) * 0.25f,
@@ -3501,7 +3539,7 @@ static void Tb_DisconnectDialogInit(void) {
         Dialog_SetLayout(0);
         Dialog_SetMsg(0);
         Dialog_SetChoices(0);
-        Dialog_Start(DIALOG_CMD_SHOW);
+        Dialog_Start(DIALOG_CMD_OPEN);
     }
     gDialog = previous;
 }
@@ -3515,6 +3553,10 @@ static s32 Tb_DisconnectDialogStartClose(void) {
     Dialog_Start(DIALOG_CMD_CLOSE);
     gDialog = previous;
     return 1;
+}
+
+static s32 Tb_DisconnectDialogIsOpen(void) {
+    return sTbDisconnectDialog && (sTbDisconnectDialog->flash[0].flags & 2);
 }
 
 static s32 Tb_DisconnectDialogIsClosed(void) {
@@ -3554,7 +3596,15 @@ static void Tb_DrawDisconnect(void) {
     sTbDisconnectDialog = gDialog;
     gDialog = previous;
     bob = Tb_WiiIdleBob((sTb->frames * 3) % 2000, 4.0f);
-    drop = sTb->disconnectClosing ? (f32)(sTb->disconnectCloseFrames++ * 6) : 0.0f;
+    if (sTb->disconnectClosing) {
+        drop = (f32)(sTb->disconnectCloseFrames++ * 6);
+    } else {
+        f32 enter = (f32)sTb->disconnectOpenFrames / 24.0f;
+        if (enter > 1.0f) enter = 1.0f;
+        /* Ease up from below the viewport; the eye shares the body's offset. */
+        drop = 180.0f * (1.0f - enter) * (1.0f - enter) * (1.0f - enter);
+        if (sTb->disconnectOpenFrames < 24) sTb->disconnectOpenFrames++;
+    }
     Ps_SpriteScreen(TBO_WII_DISCONNECT_GIRU, 192.0f, 274.0f + bob + drop, 320.0f, 424.0f + bob + drop,
                     0.0f, 0.0f, 1.0f, 1.0f, PS_PLAIN, 0x80);
     eyeAlpha = (s32)(56.0f * (1.0f - cosf((f32)(sTb->frames % 120) * (6.283185307f / 120.0f))));
@@ -3645,7 +3695,8 @@ s32 PortTbo_Run(void) {
         }
         live = !sTb->leaving && ColorFade_IsInDone();
         Ps_PromptsClear();
-        switch (sTb->mode) {
+        if (sTb->disconnectReason) Tb_WiiUpdate(live);
+        else switch (sTb->mode) {
         case TB_WII_HOME:
         case TB_WII_BATTLE:
         case TB_WII_CUSTOM:
@@ -3798,3 +3849,213 @@ void PortTbo_SparSign(void) {
     Ps_Msg(146.0f, 93.0f, line, 1.0f, 0x80);
 }
 #endif
+
+#include "battle/battle.h"
+#include "sys/ramp.h"
+extern int Port_NetMe(void);
+extern int Port_NetBotSide(void);
+extern const char *Port_NetName(int side);
+extern s32 BattleResult_HasWinner(void);
+extern s32 BattleResult_GetWinnerSide(void);
+extern void BattleResult_Set(s32 flags, s32 reason);
+typedef struct OnlineResult {
+    s32 active, frames, winner, botDecided, rematchWait;
+    s32 cursor[2], requested[2], ended[2];
+} OnlineResult;
+static OnlineResult *sOnlineResult;
+
+static void OnlineResult_Update(void) {
+    s32 side;
+    if (!sOnlineResult->active) {
+        sOnlineResult->active = 1;
+        sOnlineResult->winner = BattleResult_HasWinner() ? BattleResult_GetWinnerSide() : -1;
+    }
+    if (sOnlineResult->rematchWait > 0) {
+        if (--sOnlineResult->rematchWait == 0)
+            BattleResult_Set(BTL_RESULT_ABORT, 0x10); /* stock return to character/team selection */
+        return;
+    }
+    if (++sOnlineResult->frames < 20) return; /* ignore buttons carried from the victory sequence */
+    for (side = 0; side < 2; side++) {
+        u32 keys = gPad[side].pressed;
+        s32 previousCursor = sOnlineResult->cursor[side];
+        if (sOnlineResult->ended[side]) continue;
+        if (side == Port_NetBotSide()) {
+            keys = 0;
+            /* This menu runs at 60 Hz (Gfx_EndFrame(1)), including during rollback. */
+            if (sOnlineResult->frames >= 5 * 60) {
+                if (sOnlineResult->ended[!side]) {
+                    keys = PAD_RIGHT | PAD_CROSS;
+                } else if (!sOnlineResult->botDecided) {
+                    sOnlineResult->botDecided = 1;
+                    keys = ((sOnlineResult->winner >= 0 && sOnlineResult->winner != side) ||
+                            Rand_Range(10) < 8 ? PAD_LEFT : PAD_RIGHT) | PAD_CROSS;
+                }
+            }
+        }
+        if (!(sOnlineResult->ended[0] || sOnlineResult->ended[1]) &&
+            (keys & (PAD_LEFT | PAD_LSTICK_LEFT))) sOnlineResult->cursor[side] = 0;
+        if (keys & (PAD_RIGHT | PAD_LSTICK_RIGHT)) sOnlineResult->cursor[side] = 1;
+        if (side == Port_NetMe() && previousCursor != sOnlineResult->cursor[side])
+            Snd_PlaySe(1, 0);
+        if (keys & PAD_CROSS) {
+            if (sOnlineResult->cursor[side]) {
+                sOnlineResult->ended[side] = 1;
+                if (side == Port_NetMe()) Snd_PlaySe(1, 1);
+            } else if (!(sOnlineResult->ended[0] || sOnlineResult->ended[1]) &&
+                       !sOnlineResult->requested[side]) {
+                sOnlineResult->requested[side] = 1;
+                if (side == Port_NetMe()) Snd_PlaySe(1, 1);
+            }
+        }
+    }
+    /* A refusal cancels every rematch request and leaves each player time to acknowledge it. */
+    if (sOnlineResult->ended[0] || sOnlineResult->ended[1]) {
+        sOnlineResult->requested[0] = sOnlineResult->requested[1] = 0;
+        sOnlineResult->cursor[0] = sOnlineResult->cursor[1] = 1;
+        if (sOnlineResult->ended[0] && sOnlineResult->ended[1])
+            BattleResult_Set(BTL_RESULT_ABORT, 0x20);
+    } else if (sOnlineResult->requested[0] && sOnlineResult->requested[1])
+        sOnlineResult->rematchWait = 3 * 60;
+}
+
+
+/* Scale each badge around its own center so the lettering and backing move together. */
+static void Tb_ResultPulseSprite(s32 id, f32 x0, f32 y0, f32 x1, f32 y1,
+                                 f32 u0, f32 v0, f32 u1, f32 v1, f32 scale) {
+    f32 cx = (x0 + x1) * 0.5f, cy = (y0 + y1) * 0.5f;
+    f32 hw = (x1 - x0) * 0.5f * scale, hh = (y1 - y0) * 0.5f * scale;
+    Ps_SpriteScreen(id, cx - hw, cy - hh, cx + hw, cy + hh,
+                    u0, v0, u1, v1, PS_PLAIN, 128);
+}
+
+/* This is a menu phase: no battle objects, HUD, scene updates, or battle drawing remain alive. */
+s32 PortTbo_ResultRun(s32 battles, s32 wins0, s32 wins1) {
+    s32 ownedArc = gMenuArc5 == NULL;
+    s32 decision = 0, closing = 0;
+    char labels[2][128];
+    s32 edited[2];
+    s32 style = Port_NetBattleMenuStyle(-1);
+    extern s32 gPortMenuMode;
+    gPortMenuMode = 1;
+    if (ownedArc) gMenuArc5 = File_LoadSync(gProgress->baseFile, NULL, 0);
+    sTb = Heap_Alloc(sizeof(*sTb), 0x20, 0, 2);
+    memset(sTb, 0, sizeof(*sTb));
+    sTb->wii = 1;
+    sTb->mode = TB_WII_VS;
+    sTb->wiiNormalBattle = style & 1;
+    sTb->wiiFriend = (style >> 1) & 1;
+    sTb->resultBattles = battles;
+    sTb->resultWins[0] = wins0;
+    sTb->resultWins[1] = wins1;
+    Tb_LoadWiiText();
+    Tb_SetWiiTitles();
+    /* Online boot bypasses the main menu, so its heading samples may never have
+       been captured. Sample the original main-menu movie before creating our window. */
+    {
+        void *arc = File_LoadSync(gProgress->baseFile + 1, NULL, 0);
+        void *res = Sprite_Unpack(MPACK_AT(arc, 2), NULL, NULL);
+        void *icons = MPACK_AT(res, 23);
+        extern void IconWin_PortCaptureMainHeading(void);
+        Res_RelocateOffsets(&icons, icons, icons);
+        IconWin_Init(MPACK_AT(res, 22), icons);
+        IconWin_PortCaptureMainHeading();
+        IconWin_Term();
+        Heap_Free(res);
+        Heap_Free(arc);
+    }
+    Tb_WinInit();
+    edited[0] = PortTbo_ResultTextCopy(0, labels[0], sizeof(labels[0]));
+    edited[1] = PortTbo_ResultTextCopy(1, labels[1], sizeof(labels[1]));
+    sOnlineResult = Heap_Alloc(sizeof(*sOnlineResult), 0x20, 0, 2);
+    memset(sOnlineResult, 0, sizeof(*sOnlineResult));
+    sOnlineResult->winner = BattleResult_HasWinner() ? BattleResult_GetWinnerSide() : -1;
+    sOnlineResult->active = 1;
+    Bgm_Play(0x10B1B);
+    ColorFade_StartIn(0, 0, 0, 0x14);
+    while (1) {
+        s32 side, me, disabled;
+        f32 pulse = 1.0f + 0.06f * sinf((f32)(sTb->frames % 90) * (6.283185307f / 90.0f));
+        Job_Run();
+        Gfx_BeginFrame();
+        Pad_Update();
+        Snd_Update();
+        ColorFade_Update();
+        if (!closing && ColorFade_IsInDone()) {
+            OnlineResult_Update();
+            if (Battle_GetResult()->winner & BTL_RESULT_ABORT) {
+                decision = (Battle_GetResult()->reason & 0x10) != 0;
+                closing = 1;
+                ColorFade_StartOut(0, 0, 0, 0x14);
+            }
+        }
+        Ps_PageSet();
+        Ps_SetShift(0);
+        Tb_Backdrop();
+        IconWin_Draw();
+        Tb_DrawWiiVs();
+        MsgWin_PortPrepareNativeNames();
+        MsgWin_PortDrawNativeName(Port_NetName(0), 42, 70, 470, 111);
+        MsgWin_PortDrawNativeName(Port_NetName(1), 42, 210, 470, 251);
+        if (sOnlineResult->winner >= 0) {
+            f32 top = sOnlineResult->winner ? 203.0f : 63.0f;
+            Tb_ResultPulseSprite(TBO_WII_RESULT_BADGE, 12, top - 22, 110, top + 70,
+                                 0, 0, 1, 1, pulse);
+            Tb_ResultPulseSprite(TBO_WII_RESULT_WIN, 8, top - 22, 118, top + 69,
+                                 18.0f / 128, 18.0f / 128, 117.0f / 128, 109.0f / 128, pulse);
+        }
+        me = Port_NetMe();
+        if (me < 0 || me > 1) me = 0;
+        disabled = sOnlineResult->ended[0] || sOnlineResult->ended[1];
+        for (side = 0; side < 2; side++) {
+            f32 x = side ? 270.0f : 10.0f;
+            s32 selected = sOnlineResult->cursor[me] == side;
+            u32 tint = side == 0 && disabled ? Ps_Rgba(0x58, 0x58, 0x58, 0x80) : PS_PLAIN;
+            Ps_SpriteScreen(selected ? TBO_WII_RESULT_BAR_GOLD : TBO_WII_RESULT_BAR_BLUE,
+                            x, 382, x + 232, 414, 0, 0, 225.0f / 256, 37.0f / 64, tint, 0x80);
+            if (PortTbo_WiiUseFont() || edited[side]) {
+                s32 id = PortTbo_TextId(labels[side], selected ? 4 : 3);
+                if (id >= 0) {
+                    f32 width = 19.0f * (f32)PortTbo_TextInfo(id, 0) / 1000.0f;
+                    f32 fit = width > 208.0f ? 208.0f / width : 1.0f;
+                    f32 left = x + (232.0f - width * fit) * 0.5f;
+                    Ps_SpriteScreen(id, left, 398.0f - 16.0f * fit,
+                                    left + 512.0f * fit, 398.0f + 16.0f * fit,
+                                    0, 0, 1, 1, tint, 0x80);
+                }
+            } else {
+                Ps_SpriteScreen(selected ? TBO_WII_RESULT_LABEL_SELECTED : TBO_WII_RESULT_LABEL_IDLE,
+                                x + 12, 381, x + 220, 413,
+                                0, side * 0.5f, 1, (side + 1) * 0.5f, tint, 0x80);
+            }
+            if (sOnlineResult->requested[side] || sOnlineResult->ended[side]) {
+                f32 bx = (side ? 170.0f : 26.0f) + (sOnlineResult->ended[side] ? 260.0f : 0.0f);
+                /* Share a center for the badge and player lettering. */
+                f32 cx = bx + 32, cy = 364;
+                Ps_SpriteScreen(TBO_WII_RESULT_BADGE,
+                                cx - 36 * pulse, cy - 32 * pulse, cx + 32 * pulse, cy + 24 * pulse,
+                                0, 0, 1, 1, PS_PLAIN, 128);
+                Tb_ResultPulseSprite(TBO_WII_VS_PLAYERS, bx, 348, bx + 64, 380,
+                                     0, side * 0.5f, 1, (side + 1) * 0.5f, pulse);
+            }
+        }
+        ColorFade_Draw();
+        File_Stub264D90();
+        Gfx_EndFrame(1);
+        Dma_Flush();
+        sTb->frames++;
+        /* Match the other Wii pages: play the heading entrance after fade-in. */
+        if (!closing && ColorFade_IsInDone()) sTb->wiiBattleT++;
+        if (closing && ColorFade_IsOutDone()) break;
+    }
+    sceGsSyncPath(0, 0);
+    Tb_WinTerm();
+    Heap_Free(sOnlineResult);
+    sOnlineResult = NULL;
+    Heap_Free(sTb);
+    sTb = NULL;
+    if (ownedArc) { Heap_Free(gMenuArc5); gMenuArc5 = NULL; }
+    Adx_StopAll();
+    gPortMenuMode = 0;
+    return decision;
+}

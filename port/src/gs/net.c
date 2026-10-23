@@ -87,7 +87,7 @@ static uint32_t now_ms(void) {
    playing work against each other; the host's is only the other side's starting value.) */
 static int sOptRoll = -1, sOptDelay = -1;
 static int sCfgGot, sCfgDelay, sCfgRoll;
-static int sGone; /* the other player said goodbye (2: because its check found the two games apart) */
+static int sGone; /* goodbye: 1 disconnected, 2 desync, 3 normal End Battle */
 extern void Port_UiNotice(const char *text); /* ui.cpp: a line over the picture for a few seconds */
 extern void Port_UiBanner(const char *text, int ms); /* ui.cpp: a line in the middle while the game waits */
 extern void Gs_HoldFrame(void);                      /* gs_draw.c: the last picture again, with that line on it */
@@ -479,7 +479,7 @@ static void send_to_peer(const void *buf, int n) {
    again each time it is run again). The newest sure note travels in every input packet; a copy that has a sure
    note of its own for the same blank compares, and when they differ the match ends on both sides with a message
    saying so. A dozen bytes a packet and a few hundred bytes hashed twice a second. */
-enum { SYNC_EVERY = 32, SYNC_SLOTS = 64, BYE_APART = 0x41504152 };
+enum { SYNC_EVERY = 32, SYNC_SLOTS = 64, BYE_APART = 0x41504152, BYE_END_BATTLE = 0x454E4421 };
 typedef struct { uint32_t tick; uint64_t value; } SyncNote;
 static SyncNote sSyncMine[SYNC_SLOTS], sSyncTheirs[SYNC_SLOTS];
 static uint32_t sSyncOutTick, sByeWhy;
@@ -714,7 +714,7 @@ static int receive(void) {
             if (n >= 12) {
                 memcpy(&why, pkt + 8, 4);
             }
-            sGone = why == BYE_APART ? 2 : 1;
+            sGone = why == BYE_APART ? 2 : why == BYE_END_BATTLE ? 3 : 1;
         } else if (type == T_HELLO && sMode == 1 && !(n >= 12 && memcmp(pkt + 8, &kVersion, 4) == 0)) {
             static int said;
             if (!said++) {
@@ -1277,7 +1277,7 @@ static int sEndReason; /* 1: peer left; 2: connection lost or session failed */
 static void ended(const char *why, unsigned tick) {
     fprintf(stderr, "bt3: net: %s (blank %u)\n", why, tick);
     if (sSession) {
-        sEndReason = sGone == 1 ? 1 : 2;
+        sEndReason = sGone == 3 ? 0 : sGone == 1 ? 1 : 2;
         Port_NetLeave(); /* back to the game as it normally is */
     }
     exit(2);
@@ -1285,6 +1285,11 @@ static void ended(const char *why, unsigned tick) {
 
 /* The other copy said goodbye. */
 static void gone(unsigned tick) {
+    if (sGone == 3) {
+        sByeWhy = BYE_END_BATTLE;
+        ended("The battle session ended normally.", tick);
+        return;
+    }
     ended(sGone == 2 ? "The two games no longer agree (desync): the match has ended." : "The other player left the match.", tick);
 }
 
@@ -1888,6 +1893,13 @@ void Port_NetLeave(void) {
     relaunch(0, NULL, 0);
 }
 
+/* Both players acknowledged End Battle: no disconnect dialog on either copy. */
+void Port_NetEndBattle(void) {
+    sEndReason = 0;
+    sByeWhy = BYE_END_BATTLE;
+    Port_NetLeave();
+}
+
 /* ---- the lobby: called from the settings code's window (ui.cpp), once a frame ---- */
 static int sLobby; /* 0 idle, 1 waiting, 2 found, -1 failed */
 static int sLobbyRole, sLobbyPort;
@@ -2443,4 +2455,11 @@ static void lobby_background(void) {
         sLobbyBg = 0;
         Port_UiNotice(now == -3 ? Port_LobbyError() : "Tenkaichi Budokai Online: the room was closed.");
     }
+}
+
+/* Menu presentation survives the session's boot-state restore; it never affects simulation. */
+static int sBattleMenuStyle;
+int Port_NetBattleMenuStyle(int style) {
+    if (style >= 0) sBattleMenuStyle = style;
+    return sBattleMenuStyle;
 }

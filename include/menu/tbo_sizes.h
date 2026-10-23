@@ -97,6 +97,12 @@ static const u16 sTboSize[TBO_ART_COUNT][3] = {
     {128, 128, 0}, /* wii_vs_digits */
     {128, 128, 0}, /* wii_vs_wins_digits */
     {128, 128, 0}, /* wii_vs_record_labels */
+    {128, 128, 0}, /* wii_result_win */
+    {64, 64, 0}, /* wii_result_badge */
+    {256, 64, 0}, /* wii_result_label_idle */
+    {256, 64, 0}, /* wii_result_label_selected */
+    {256, 64, 0}, /* wii_result_bar_blue */
+    {256, 64, 0}, /* wii_result_bar_gold */
     {128, 128, 0}, /* wii_disconnect_giru */
     {32, 32, 0}, /* wii_disconnect_giru_eye */
 };

@@ -2,7 +2,7 @@
   "schema_version": 1,
   "labels_version": 2,
   "translation_version": 1,
-  "labels_count": 36,
+  "labels_count": 38,
   "locale": "en",
   "name": "English",
   "order": 1,
@@ -150,6 +150,14 @@
     "dragon-net/name/title": {
       "original": "Create Player Name",
       "text": "Create Player Name"
+    },
+    "dragon-net/results/rematch": {
+      "original": "Rematch Request",
+      "text": "Rematch Request"
+    },
+    "dragon-net/results/end": {
+      "original": "End Battle",
+      "text": "End Battle"
     }
   }
 }

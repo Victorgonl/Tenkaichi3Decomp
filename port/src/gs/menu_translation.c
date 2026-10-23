@@ -25,7 +25,7 @@
 #endif
 
 enum { TR_MAX_FILE = 1024 * 1024, TR_MAX_ROWS = 640, TR_MAX_GROUPS = 160 };
-enum { TR_PORT_TEXT_COUNT = 36, TR_PORT_WII_TEXT_COUNT = 31, TR_PORT_TEXT_MAX = 1024, TR_PORT_MAX_FILE = 64 * 1024 };
+enum { TR_PORT_TEXT_COUNT = 38, TR_PORT_WII_TEXT_COUNT = 31, TR_PORT_TEXT_MAX = 1024, TR_PORT_MAX_FILE = 64 * 1024 };
 static const struct { const char *id, *original; } kPortText[TR_PORT_TEXT_COUNT] = {
     {PORT_TEXT_QUIT_CONFIRM, "Close the game?\nUnsaved progress will be lost."},
     {PORT_TEXT_NET_CONNECTING, "Connecting to your rival..."},
@@ -62,7 +62,9 @@ static const struct { const char *id, *original; } kPortText[TR_PORT_TEXT_COUNT]
     {"dragon-net/friend/host", "Host Battle"},
     {"dragon-net/friend/join", "Join Battle"},
     {"net/player_left", "The other player left the match."},
-    {"net/connection_lost", "Connection lost."}
+    {"net/connection_lost", "Connection lost."},
+    {"dragon-net/results/rematch", "Rematch Request"},
+    {"dragon-net/results/end", "End Battle"}
 };
 typedef struct TrPortCatalog {
     char text[TR_PORT_TEXT_COUNT][TR_PORT_TEXT_MAX];
@@ -976,3 +978,23 @@ const char *MenuTranslation_Main(void) { return __atomic_load_n(&sReady, __ATOMI
 const char *MenuTranslation_Item(void) { return __atomic_load_n(&sReady, __ATOMIC_ACQUIRE) ? sItem : NULL; }
 const char *MenuTranslation_MainOriginal(void) { return __atomic_load_n(&sReady, __ATOMIC_ACQUIRE) ? sMainOriginal : NULL; }
 const char *MenuTranslation_ItemOriginal(void) { return __atomic_load_n(&sReady, __ATOMIC_ACQUIRE) ? sItemOriginal : NULL; }
+
+/* Result buttons share the editable port catalog and the Wii menu-label rasterizer. */
+int PortTbo_ResultTextCopy(int side, char *out, int capacity) {
+    static const char *const locales[] = {"en", "es", "de", "fr", "it", "pt"};
+    static const char *const labels[][2] = {
+        {"Rematch Request", "End Battle"}, {"Solicitar revancha", "Terminar combate"},
+        {"Revanche anfordern", "Kampf beenden"}, {"Demander une revanche", "Terminer le combat"},
+        {"Richiedi rivincita", "Termina battaglia"}, {"Pedir revanche", "Encerrar batalha"}
+    };
+    int i, language = 0;
+    const char *value, *locale;
+    if (side < 0 || side > 1 || !out || capacity < 1) return 0;
+    MenuTranslation_Ensure();
+    locale = MenuTranslation_Locale();
+    for (i = 1; i < 6; i++) if (locale && !strncmp(locale, locales[i], 2)) language = i;
+    value = MenuTranslation_PortText(kPortText[36 + side].id);
+    if (!value || !strcmp(value, kPortText[36 + side].original)) value = labels[language][side];
+    snprintf(out, (size_t)capacity, "%s", value);
+    return (language == 5 || strcmp(value, labels[language][side]) != 0);
+}

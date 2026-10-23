@@ -99,6 +99,12 @@
     X(TBO_WII_VS_DIGITS, "wii_vs_digits") \
     X(TBO_WII_VS_WINS_DIGITS, "wii_vs_wins_digits") \
     X(TBO_WII_VS_RECORD_LABELS, "wii_vs_record_labels") \
+    X(TBO_WII_RESULT_WIN, "wii_result_win") \
+    X(TBO_WII_RESULT_BADGE, "wii_result_badge") \
+    X(TBO_WII_RESULT_LABEL_IDLE, "wii_result_label_idle") \
+    X(TBO_WII_RESULT_LABEL_SELECTED, "wii_result_label_selected") \
+    X(TBO_WII_RESULT_BAR_BLUE, "wii_result_bar_blue") \
+    X(TBO_WII_RESULT_BAR_GOLD, "wii_result_bar_gold") \
     X(TBO_WII_DISCONNECT_GIRU, "wii_disconnect_giru") \
     X(TBO_WII_DISCONNECT_GIRU_EYE, "wii_disconnect_giru_eye")
 
