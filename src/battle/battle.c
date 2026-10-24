@@ -369,9 +369,9 @@ s32 Battle_Main(void) {
     extern int Port_NetSession(void);
     extern void Port_NetLeave(void);
     extern void Port_NetEndBattle(void);
-    extern s32 PortTbo_ResultRun(s32 battles, s32 wins0, s32 wins1);
+    extern s32 PortTbo_ResultRun(s32 battles, s32 wins0, s32 wins1, s32 *points);
     /* Game state: retained through character selection, restored when the session ends. */
-    static s32 battles, wins[2];
+    static s32 battles, wins[2], points[2];
     s32 selectAgain = 0;
 #endif
     Battle_GetWork()->running = 1;
@@ -386,13 +386,16 @@ s32 Battle_Main(void) {
             battles++;
             if (result->winner & 1) { wins[0]++; gPortNetStagePicker = 0; }
             else if (result->winner & 2) { wins[1]++; gPortNetStagePicker = 1; }
-            selectAgain = PortTbo_ResultRun(battles, wins[0], wins[1]);
+            selectAgain = PortTbo_ResultRun(battles, wins[0], wins[1], points);
             if (!selectAgain) Port_NetEndBattle();
         }
-        if (!selectAgain) Port_NetLeave();
+        if (!selectAgain) {
+            Port_NetLeave();
+            battles = wins[0] = wins[1] = points[0] = points[1] = 0;
+        }
         /* Result reason 0x10 makes Progress_Main reopen single/team character selection. */
     } else {
-        battles = wins[0] = wins[1] = 0;
+        battles = wins[0] = wins[1] = points[0] = points[1] = 0;
         gPortNetStagePicker = 0;
     }
 #endif

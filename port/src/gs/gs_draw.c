@@ -638,7 +638,7 @@ static GsTex tbo_texture(uint32_t id) {
     GsTex *cached;
     unsigned char *missing;
     int languageArt = id >= TBO_LANG_BG && id <= TBO_LANG_ARROW_RIGHT;
-    int wiiArt = id >= TBO_WII_BG_0 && id <= TBO_WII_DISCONNECT_GIRU_EYE;
+    int wiiArt = id >= TBO_WII_BG_0 && id <= TBO_WII_RESULT_CHANGE;
     int wiiSection = 0, wiiResource = 0, wiiTexture = 0, wiiPart = -1;
 
     if (id >= TBO_TEXT_BASE && id < TBO_TEXT_BASE + TBO_TEXT_SLOTS) {
@@ -724,6 +724,7 @@ static GsTex tbo_texture(uint32_t id) {
         else if (id == TBO_WII_VS_DIGITS) { wiiSection = 1; wiiResource = 3; wiiTexture = 38; }
         else if (id == TBO_WII_VS_WINS_DIGITS) { wiiSection = 1; wiiResource = 3; wiiTexture = 38; }
         else if (id == TBO_WII_VS_RECORD_LABELS) { wiiSection = 1; wiiResource = 3; wiiTexture = 42; }
+        else if (id == TBO_WII_RESULT_CHANGE) { wiiSection = 1; wiiResource = 3; wiiTexture = 32; }
         else if (id == TBO_WII_RESULT_WIN) { wiiSection = 1; wiiResource = 3; wiiTexture = 23; }
         else if (id == TBO_WII_RESULT_BADGE) { wiiSection = 1; wiiResource = 3; wiiTexture = 25; }
         else if (id == TBO_WII_RESULT_LABEL_IDLE) { wiiSection = 1; wiiResource = 3; wiiTexture = 3; }

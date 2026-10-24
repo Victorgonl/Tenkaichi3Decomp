@@ -299,3 +299,22 @@ s32 UbScore_SaveBestC(s32 course, s32 total, UbScore *score) {
 s32 UbScore_GetRewardItem(s32 idx) {
     return gUbRewardItems[idx];
 }
+
+#ifdef PORT
+/* Same prices and damage-bracket behavior as Mission 100, for either online side. */
+s32 UbScore_OnlinePoints(void *table, f32 health, s32 hits, s32 damage, u64 events) {
+    UbScore score;
+    s32 i;
+    memset(&score, 0, sizeof(score));
+    score.lineCount = 3;
+    score.line[0].value = health > 0.0f && health < 1.0f ? 1 : (s32)health;
+    if (score.line[0].value < 0) score.line[0].value = 0;
+    if (score.line[0].value > 100) score.line[0].value = 100;
+    score.line[1].value = hits < 0 ? 0 : hits > 100 ? 100 : hits;
+    score.line[2].value = damage < 0 ? 0 : damage > 99990 ? 99990 : damage;
+    for (i = 0; i < UBSCORE_BONUS_MAX; i++)
+        if ((events >> i) & 1) score.bonus[score.bonusCount++].value = i;
+    UbScore_CalcPoints(table, &score);
+    return UbScore_CalcRank(1, &score);
+}
+#endif

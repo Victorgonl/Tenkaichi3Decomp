@@ -299,6 +299,31 @@ tint channels stay at or below GS neutral (0x80) to avoid amplifying brightness.
 starburst/request badge (25), button lettering (3/4), and selection bars (17/18). Localized Wii
 button sheets follow the same language lookup as the other menu artwork.
 
+The middle row of each result plate displays **Fighting Point**, the accumulated
+session total using the Wii yellow point digits, with a Wii up/down arrow for an
+actual increase/decrease (no numeric delta). The visible label and digits share a
+vertical center. Displayed totals are `ceil(internal points / 100)`; calculation
+keeps the full internal precision. Points persist through
+rematches and reset when the session ends, alongside its battle records; they are
+not a persistent account rating. Every completed online match uses the Mission 100
+internal point units and the actual resource-13 price table, without the display's
+100× multiplier. Each side's maximum combo hits, maximum combo damage, remaining
+team health, and bonus events contribute. Bonus summaries for both sides are
+captured before battle objects are destroyed, while the stock result retains the
+side-zero summary.
+
+If `W` and `L` are the winner's and loser's match scores, the winner's accumulated
+total increases by `W` and the loser's changes by `L - W`. For example, match scores
+3,100 and 1,400 add 3,100 to the winner and subtract 1,700 from the loser. This uses
+the match scores, not the accumulated totals. Totals are clamped to zero;
+if the loser scores more in the match, the specified formula increases their total.
+Aborted matches do not award points. A result without a winner changes neither
+total. Accumulation is bounded to 0..999,900 to prevent overflow.
+
+`python3 port/tests/test_online_points.py` exercises the production score helper
+against eight cases using the local USA disc's price table (including the original
+99,990-damage lookup edge). See [the extracted scoring tables](../systems/mission_100_scoring.md).
+
 The in-battle online pause menu omits Return to Character Select (entry 0xD) and
 Return to Main Menu (entry 0xF);
 character selection is reached through mutual post-battle rematch requests.
@@ -376,3 +401,25 @@ controls the stage/music choice, in both single and team/DP battles.
 
 Stage/music chooser badges render at 75% of their native bounds, centered on the
 same position for both 1P and 2P.
+
+Point changes use resource 3 / texture 032 (the solid arrow), flipped vertically
+and tinted yellow for an increase, or tinted purple for a decrease. Internal point
+totals saturate at 999,900, so the maximum displayed value is 9,999.
+
+Displayed Fighting Point totals always use four digits with leading zeros
+(`0000` through `9999`), for example 2,260 internal points displays as `0023`.
+
+Fighting Point digits use the original gold sheet (resource 3 / texture 005),
+cropped to its 19×22 glyph cells, with
+24×17 draw bounds and an 18-unit advance. The 28×28 change arrow draws first
+behind the last digit, overlapping its right edge. Both arrows are centered
+at the same height as the number before their directional animation. The Fighting
+Point label sits three layout units lower to center its visible lettering in the row.
+Change arrows loop every 90 frames, drifting six layout units upward for an
+increase or downward for a decrease. Opacity eases from transparent to solid and
+back to transparent, hiding the position reset between cycles.
+
+The gold point artwork is used directly without the record digits’ recoloring.
+
+The result WIN! lettering and its starburst are scaled to 75% around their centers,
+while retaining the existing pulse animation.

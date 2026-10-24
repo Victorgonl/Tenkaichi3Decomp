@@ -958,12 +958,12 @@ s32 BattleResult_IsEvent3CSet(s32 side) {
 }
 
 #define RESULT_EVENT(ev, bit) \
-    if (BtlEvent_WasRaised(0, ev)) { \
+    if (BtlEvent_WasRaised(side, ev)) { \
         result->eventSummary |= (bit); \
     }
 
 /* Rebuilds the result's 64-bit event summary from event set 0. */
-void BattleResult_CollectEvents(BattleResult *result) {
+static void BattleResult_CollectSideEvents(BattleResult *result, s32 side) {
     u32 i;
     u32 count;
     u16 sum;
@@ -974,12 +974,12 @@ void BattleResult_CollectEvents(BattleResult *result) {
     RESULT_EVENT(0x51, 1);
     RESULT_EVENT(0x52, 2);
     RESULT_EVENT(0x53, 4);
-    if (!BtlEvent_WasRaised(0, 0x59)) {
+    if (!BtlEvent_WasRaised(side, 0x59)) {
         result->eventSummary |= 8;
     }
     RESULT_EVENT(0x54, 0x10);
-    if (BtlEvent_WasRaised(0, 0x37) && BtlEvent_WasRaised(0, 0x38) && BtlEvent_WasRaised(0, 0x39) && BtlEvent_WasRaised(0, 0x3A) &&
-        BtlEvent_WasRaised(0, 0x3B)) {
+    if (BtlEvent_WasRaised(side, 0x37) && BtlEvent_WasRaised(side, 0x38) && BtlEvent_WasRaised(side, 0x39) && BtlEvent_WasRaised(side, 0x3A) &&
+        BtlEvent_WasRaised(side, 0x3B)) {
         result->eventSummary |= 0x100;
     }
     RESULT_EVENT(0x55, 0x200);
@@ -1003,20 +1003,20 @@ void BattleResult_CollectEvents(BattleResult *result) {
     RESULT_EVENT(0x42, 1ULL << 34);
     RESULT_EVENT(0x43, 1ULL << 35);
     RESULT_EVENT(0x44, 1ULL << 36);
-    if (!BtlEvent_WasRaised(0, 0x22)) {
+    if (!BtlEvent_WasRaised(side, 0x22)) {
         result->eventSummary |= 1ULL << 37;
     }
     RESULT_EVENT(0x58, 1ULL << 39);
-    if (!BtlEvent_WasRaised(0, 0x4E) && (u32)BattleSide_GetMemberCount(0) >= 2) {
+    if (!BtlEvent_WasRaised(side, 0x4E) && (u32)BattleSide_GetMemberCount(side) >= 2) {
         result->eventSummary |= 1ULL << 40;
     }
     RESULT_EVENT(0x21, 1ULL << 41);
     RESULT_EVENT(0x3C, 1ULL << 42);
     RESULT_EVENT(0x1E, 1ULL << 44);
-    count = BattleSide_GetMemberCount(0);
+    count = BattleSide_GetMemberCount(side);
     sum = 0;
     for (i = 0; i < count; i++) {
-        m = BattleSide_GetMember(0, i);
+        m = BattleSide_GetMember(side, i);
         if (m != NULL) {
             for (j = 0; j < 8; j++) {
                 sum += m->items.id[j];
@@ -1028,6 +1028,21 @@ void BattleResult_CollectEvents(BattleResult *result) {
     }
     RESULT_EVENT(0x46, 1ULL << 46);
     RESULT_EVENT(0x47, 1ULL << 47);
+}
+
+/* Preserve the stock side-zero summary; online scoring needs both sides before teardown. */
+#ifdef PORT
+u64 gPortNetBattleEvents[2];
+#endif
+void BattleResult_CollectEvents(BattleResult *result) {
+#ifdef PORT
+    BattleResult_CollectSideEvents(result, 1);
+    gPortNetBattleEvents[1] = result->eventSummary;
+#endif
+    BattleResult_CollectSideEvents(result, 0);
+#ifdef PORT
+    gPortNetBattleEvents[0] = result->eventSummary;
+#endif
 }
 
 /*

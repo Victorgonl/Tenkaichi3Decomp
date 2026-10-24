@@ -106,7 +106,8 @@
     X(TBO_WII_RESULT_BAR_BLUE, "wii_result_bar_blue") \
     X(TBO_WII_RESULT_BAR_GOLD, "wii_result_bar_gold") \
     X(TBO_WII_DISCONNECT_GIRU, "wii_disconnect_giru") \
-    X(TBO_WII_DISCONNECT_GIRU_EYE, "wii_disconnect_giru_eye")
+    X(TBO_WII_DISCONNECT_GIRU_EYE, "wii_disconnect_giru_eye") \
+    X(TBO_WII_RESULT_CHANGE, "wii_result_change")
 
 #define TBO_ART_ENUM(id, name) id,
 enum { TBO_ART_LIST(TBO_ART_ENUM) TBO_ART_COUNT };

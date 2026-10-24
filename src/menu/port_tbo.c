@@ -380,6 +380,7 @@ typedef struct TboScreen {
     s32 wiiBattleT;     /* battle-page entrance, after its fade in */
     s32 wiiNextMode;    /* pending Wii page switch, after fade out */
     s32 resultBattles, resultWins[2];
+    s32 resultPoints[2], resultPointDelta[2], resultHasPoints;
     s32 wiiSubCur;
     s32 modeT;
     s32 leaving;
@@ -2326,6 +2327,16 @@ static void Tb_DrawWiiBattle(void) {
                     0.0f, 0.0f, 1.0f, 1.0f, PS_PLAIN, iconAlpha);
 }
 
+/* Keep full scoring precision internally; only the presentation uses rounded hundreds. */
+static s32 Tb_PointDisplay(s32 points) {
+    return points / 100 + (points % 100 != 0);
+}
+
+static s32 Tb_PointTotal(s32 previous, s32 change) {
+    s64 total = (s64)previous + change;
+    return total > 999900 ? 999900 : total < 0 ? 0 : (s32)total;
+}
+
 /* The Wii record plate's badges, three labels, and zeroed record values. */
 static void Tb_WiiVsRecord(f32 top, s32 second) {
     static const f32 column[3] = {103.0f, 248.0f, 403.0f};
@@ -2334,6 +2345,37 @@ static void Tb_WiiVsRecord(f32 top, s32 second) {
     Ps_SpriteScreen(TBO_WII_VS_PLAYERS, 18.0f, top + 32.0f, 82.0f, top + 64.0f,
                     0.0f, second ? 0.5f : 0.0f, 1.0f, second ? 1.0f : 0.5f,
                     PS_PLAIN, 0x80);
+    if (sTb->resultHasPoints) {
+        s32 value = sTb->resultPoints[second];
+        s32 display = Tb_PointDisplay(value);
+        s32 place = 1000, digits = 4;
+        f32 x;
+        /* Center the visible artwork, excluding transparent padding in its sheet. */
+        Ps_SpriteScreen(TBO_WII_BATTLE_POINT_LABEL, 89, top + 45.5f, 183.5f, top + 66.5f,
+                        1.0f / 256, 0, 119.0f / 256, 26.0f / 64, PS_PLAIN, 0x80);
+        /* Draw the change arrow behind the last digit, as in the Wii result plate. */
+        if (sTb->resultPointDelta[second] != 0) {
+            s32 increase = sTb->resultPointDelta[second] > 0;
+            f32 phase = (f32)(sTb->frames % 90) / 90.0f;
+            s32 alpha = (s32)(64.0f * (1.0f - cosf(phase * 6.283185307f)));
+            /* Center either arrow at the same height as the digits. */
+            f32 arrowTop = top + 39.5f;
+            /* Reset position while transparent, then drift in the change direction. */
+            arrowTop += (increase ? -6.0f : 6.0f) * phase;
+            Ps_SpriteScreen(TBO_WII_RESULT_CHANGE, 426, arrowTop, 454, arrowTop + 28,
+                            0, increase ? 1 : 0, 1, increase ? 0 : 1,
+                            increase ? Ps_Rgba(0x80, 0x80, 0x10, 0x80)
+                                     : Ps_Rgba(0x50, 0x40, 0x80, 0x80), alpha);
+        }
+        x = 436.0f - (digits - 1) * 18.0f - 24.0f;
+        for (; place; place /= 10, x += 18) {
+            s32 digit = (display / place) % 10;
+            f32 u = ((digit % 4) * 32 + 1) / 128.0f;
+            f32 v = ((digit / 4) * 32 + 1) / 128.0f;
+            Ps_SpriteScreen(TBO_WII_BATTLE_POINT_DIGITS, x, top + 45, x + 24, top + 62,
+                            u, v, u + 19.0f / 128, v + 22.0f / 128, PS_PLAIN, 0x80);
+        }
+    }
     for (i = 0; i < 3; i++) {
         s32 wins = i == 1;
         f32 x = column[i];
@@ -3930,7 +3972,7 @@ static void Tb_ResultPulseSprite(s32 id, f32 x0, f32 y0, f32 x1, f32 y1,
 }
 
 /* This is a menu phase: no battle objects, HUD, scene updates, or battle drawing remain alive. */
-s32 PortTbo_ResultRun(s32 battles, s32 wins0, s32 wins1) {
+s32 PortTbo_ResultRun(s32 battles, s32 wins0, s32 wins1, s32 *points) {
     s32 ownedArc = gMenuArc5 == NULL;
     s32 decision = 0, closing = 0;
     char labels[2][128];
@@ -3948,6 +3990,33 @@ s32 PortTbo_ResultRun(s32 battles, s32 wins0, s32 wins1) {
     sTb->resultBattles = battles;
     sTb->resultWins[0] = wins0;
     sTb->resultWins[1] = wins1;
+    /* Read the actual Mission 100 price resource, not a separate online tuning table. */
+    {
+        extern u64 gPortNetBattleEvents[2];
+        extern s32 UbScore_OnlinePoints(void *, f32, s32, s32, u64);
+        BattleResult *result = Battle_GetResult();
+        void *arc = File_LoadSync(gProgress->baseFile + 3, NULL, 0);
+        void *res = Sprite_Unpack(MPACK_AT(arc, 3), NULL, NULL);
+        s32 earned[2], side;
+        s32 winner = BattleResult_HasWinner() ? BattleResult_GetWinnerSide() : -1;
+        for (side = 0; side < 2; side++)
+            earned[side] = UbScore_OnlinePoints(MPACK_AT(res, 13), result->health[side],
+                                               result->unk24[side], result->unk1C[side],
+                                               gPortNetBattleEvents[side]);
+        Heap_Free(res);
+        Heap_Free(arc);
+        if (winner >= 0 && winner < 2) {
+            sTb->resultPointDelta[winner] = earned[winner];
+            sTb->resultPointDelta[!winner] = earned[!winner] - earned[winner];
+        }
+        for (side = 0; side < 2; side++) {
+            s32 previous = points[side];
+            points[side] = Tb_PointTotal(previous, sTb->resultPointDelta[side]);
+            sTb->resultPointDelta[side] = points[side] - previous;
+            sTb->resultPoints[side] = points[side];
+        }
+        sTb->resultHasPoints = 1;
+    }
     Tb_LoadWiiText();
     Tb_SetWiiTitles();
     /* Online boot bypasses the main menu, so its heading samples may never have
@@ -4000,9 +4069,9 @@ s32 PortTbo_ResultRun(s32 battles, s32 wins0, s32 wins1) {
         if (sOnlineResult->winner >= 0) {
             f32 top = sOnlineResult->winner ? 203.0f : 63.0f;
             Tb_ResultPulseSprite(TBO_WII_RESULT_BADGE, 12, top - 22, 110, top + 70,
-                                 0, 0, 1, 1, pulse);
+                                 0, 0, 1, 1, pulse * 0.75f);
             Tb_ResultPulseSprite(TBO_WII_RESULT_WIN, 8, top - 22, 118, top + 69,
-                                 18.0f / 128, 18.0f / 128, 117.0f / 128, 109.0f / 128, pulse);
+                                 18.0f / 128, 18.0f / 128, 117.0f / 128, 109.0f / 128, pulse * 0.75f);
         }
         me = Port_NetMe();
         if (me < 0 || me > 1) me = 0;
