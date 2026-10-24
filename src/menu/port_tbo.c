@@ -370,6 +370,11 @@ typedef struct TboScreen {
     s32 wiiDialogT;
     s32 wiiDialogStarted;
     s32 wiiDialogTouched;
+    s32 wiiPanPointing;
+    s32 wiiBattleIntro;
+    s32 wiiIdleT;
+    s32 wiiIdleUsed;
+    s32 wiiIdleLast; /* line ID; zero before the first idle remark */
     s32 wiiDialogJapanese;
     s32 wiiDialogVoiceStarted;
     char wiiDialogText[256];
@@ -680,7 +685,10 @@ static void Tb_SetMode(s32 mode) {
         sTb->modeT = 0;
         if (previous == TB_WII_NAME && mode == TB_WII_SETTINGS)
             sTb->modeT = 24; /* return with the settings page already settled */
+        sTb->wiiBattleIntro = 0;
+        sTb->wiiIdleT = 0;
         if (mode == TB_WII_HOME) {
+            sTb->wiiPanPointing = 0;
             if (previous != TB_WII_SETTINGS && previous != TB_WII_BATTLE) {
                 sTb->wiiHomeT = 0;
                 sTb->wiiDialogTouched = 0;
@@ -1289,6 +1297,44 @@ static void Tb_WiiUpdate(s32 live) {
         sTb->wiiDialogT > Port_WiiDialogDuration(0, sTb->wiiDialogJapanese) + 12 &&
         Port_WiiDialogDuration(0, sTb->wiiDialogJapanese) > 0)
         Tb_WiiDialogSet(1); /* Giru answers Pan's opening line. */
+    else if (sTb->mode == TB_WII_HOME && !sTb->wiiDialogTouched && sTb->wiiDialogLine == 1 &&
+             sTb->wiiDialogT > Port_WiiDialogDuration(1, sTb->wiiDialogJapanese) + 12 &&
+             Port_WiiDialogDuration(1, sTb->wiiDialogJapanese) > 0)
+        Tb_WiiDialogSet(Tb_WiiLine()); /* Pan describes the initially selected entry. */
+    if (sTb->mode == TB_WII_HOME && sTb->wiiBattleIntro) {
+        s32 duration = Port_WiiDialogDuration(sTb->wiiDialogLine, sTb->wiiDialogJapanese);
+        /* Missing lip assets still leave time to read the translated subtitle. */
+        if (duration <= 0) duration = 180;
+        if (sTb->wiiDialogT > duration + 12) {
+            if (sTb->wiiDialogLine == 9) {
+                Tb_WiiDialogSet(10); /* Giru answers Pan in the selected voice language. */
+            } else {
+                sTb->wiiNextMode = TB_WII_BATTLE;
+                ColorFade_StartOut(0, 0, 0, 0x14);
+            }
+        }
+        return; /* Keep selection input from interrupting the exchange. */
+    }
+    if (sTb->mode == TB_WII_HOME) {
+        if (pad->gameHeld || pad->gamePressed || sTb->wiiNextMode) {
+            sTb->wiiIdleT = 0;
+        } else if (++sTb->wiiIdleT >= 30 * 60) {
+            s32 choices[4], count = 0, i, line;
+            if (sTb->wiiIdleUsed == 15) sTb->wiiIdleUsed = 0;
+            for (i = 0; i < 4; i++) {
+                if (!(sTb->wiiIdleUsed & (1 << i)) && i + 14 != sTb->wiiIdleLast)
+                    choices[count++] = i;
+            }
+            /* Shuffle each group of four, avoiding a repeat across groups. */
+            line = choices[Rand_Range(count)];
+            sTb->wiiIdleUsed |= 1 << line;
+            sTb->wiiIdleLast = line + 14;
+            sTb->wiiIdleT = 0;
+            sTb->wiiDialogTouched = 1;
+            sTb->wiiPanPointing = !sTb->wiiPanPointing;
+            Tb_WiiDialogSet(sTb->wiiIdleLast);
+        }
+    }
     {
         s32 previous = *cur;
         Ps_Move(cur, count);
@@ -1307,8 +1353,10 @@ static void Tb_WiiUpdate(s32 live) {
             if (*cur == 0) {
                 Snd_PlaySe(1, 1);
                 sTb->wiiBattleCur = 0;
-                sTb->wiiNextMode = TB_WII_BATTLE;
-                ColorFade_StartOut(0, 0, 0, 0x14);
+                sTb->wiiDialogTouched = 1;
+                sTb->wiiPanPointing = 1;
+                sTb->wiiBattleIntro = 1;
+                Tb_WiiDialogSet(9);
             } else if (*cur == 1) {
                 /* Manage Friends responds to focus and selection, but has no PC service. */
                 Snd_PlaySe(1, 1);
@@ -2019,8 +2067,8 @@ static void Tb_DrawWiiHomeArt(void) {
        same cadence, with independent Pan and Giru phases. */
 
     {
-        s32 pointing = sTb->wiiDialogTouched && sTb->wiiDialogLine != 1;
-        s32 lipOpen = sTb->wiiDialogVoiceStarted && sTb->wiiDialogLine != 1 &&
+        s32 pointing = sTb->wiiPanPointing;
+        s32 lipOpen = sTb->wiiDialogVoiceStarted && sTb->wiiDialogLine != 1 && sTb->wiiDialogLine != 10 &&
                       sTb->wiiDialogT <= Port_WiiDialogDuration(sTb->wiiDialogLine, sTb->wiiDialogJapanese) &&
                       Port_WiiDialogMouth(sTb->wiiDialogLine, sTb->wiiDialogT, sTb->wiiDialogJapanese);
         /* The two full-body textures contain Pan's widest mouth. The mouth
@@ -2053,7 +2101,7 @@ static void Tb_DrawWiiHomeArt(void) {
                     233.0f + giruY + giruHover + TB_WII_NATIVE_GIRU_H,
                     1.0f, 0.0f, 0.0f, 1.0f, PS_PLAIN, 0x80);
     {
-        s32 giruTalking = sTb->wiiDialogVoiceStarted && sTb->wiiDialogLine == 1 &&
+        s32 giruTalking = sTb->wiiDialogVoiceStarted && (sTb->wiiDialogLine == 1 || sTb->wiiDialogLine == 10) &&
                           sTb->wiiDialogT <= Port_WiiDialogDuration(1, sTb->wiiDialogJapanese) &&
                           Port_WiiDialogMouth(1, sTb->wiiDialogT, sTb->wiiDialogJapanese);
         s32 eye = giruTalking ? TBO_WII_GIRU_EYE_BRIGHT : TBO_WII_GIRU_EYE_DIM;
@@ -2495,8 +2543,8 @@ static void Tb_DrawWii(void) {
            name field only when the keyboard opens. */
         {
             s32 idleFrame = ((sTb->frames * 3) % 2000) / 4;
-            s32 pointing = sTb->wiiDialogTouched && sTb->wiiDialogLine != 1;
-            s32 lipOpen = sTb->wiiDialogVoiceStarted && sTb->wiiDialogLine != 1 &&
+            s32 pointing = sTb->wiiPanPointing;
+            s32 lipOpen = sTb->wiiDialogVoiceStarted && sTb->wiiDialogLine != 1 && sTb->wiiDialogLine != 10 &&
                           sTb->wiiDialogT <= Port_WiiDialogDuration(sTb->wiiDialogLine, sTb->wiiDialogJapanese) &&
                           Port_WiiDialogMouth(sTb->wiiDialogLine, sTb->wiiDialogT, sTb->wiiDialogJapanese);
             s32 mouthShape = !lipOpen ? 0 : (sTb->wiiDialogT / 10 & 1) ? 1 : 2;
@@ -2685,7 +2733,7 @@ static void Tb_DrawWiiName(void) {
     panX = Tb_WiiMotionQuarter(TBO_WII_MOTION_PAN_ENTRY_X, sTb->wiiHomeT * 3) + 11.95f;
     panY = Tb_WiiIdleBob((sTb->frames * 3) % 2000, 6.0f);
     if (sTb->mode == TB_WII_NAME && in < 1.0f)
-        Ps_SpriteScreen(sTb->wiiDialogTouched && sTb->wiiDialogLine != 1 ? TBO_WII_PAN_POINT : TBO_WII_PAN,
+        Ps_SpriteScreen(sTb->wiiPanPointing ? TBO_WII_PAN_POINT : TBO_WII_PAN,
                         -13.0f + panX - 270.0f * in, 9.0f + panY,
                         243.0f + panX - 270.0f * in, 521.0f + panY,
                         0.0f, 0.0f, 1.0f, 1.0f, PS_PLAIN, 0x80);

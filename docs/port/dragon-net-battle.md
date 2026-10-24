@@ -212,13 +212,15 @@ separate Japanese and English lip events for each. The matching ADX voices are e
 32159–32202 (English) in the Wii voice archive. The extractor pairs them in `home-dialog.bin` and
 `voices/{ja,en}/000.adx` through `043.adx`, checking each recording against its own lip track.
 The game's Sound Options voice choice selects the matching recording and lip track independently of subtitle language.
-Pan's base pose has open eyes; its original closed-eye overlay blinks briefly. After the
-first cursor movement she uses the Wii pointing pose with its own eye and mouth sprites. The Wii lip track gates the
+Pan's base pose has open eyes; its original closed-eye overlay blinks briefly. Selecting the
+first home entry switches her to the Wii pointing pose with its own eye and mouth sprites; scrolling keeps her current pose. The Wii lip track gates the
 mouth animation for either pose: the body texture supplies the widest mouth, the first overlay is half open, and
 the second overlay is closed. The recorded lip track chooses speaking or a pause; the two speaking shapes alternate
 while it is open. Giru's dim eye is used while idle and his bright eye follows his own lip track.
-The home scene speaks Pan's introduction and Giru's reply. Moving the cursor speaks the original description of the
-selected option. The other lower Wii menu pages use their original spoken descriptions too. Pan's mouth and Giru's eye
+On the home screen, 30 seconds without input toggles Pan’s pose and plays one of her four idle remarks (dialogue IDs 14–17). Each randomized group uses all four once, with no immediate repeat between groups. Input and page changes reset the idle timer; the battle-entry exchange blocks idle remarks. Idle lines use the existing subtitle and voice language settings.
+
+The home scene speaks Pan's introduction and Giru's reply, then Pan describes the first entry. Moving the cursor speaks the original description of the
+selected option. Selecting the first entry plays Pan’s “Giru, if you please!” and Giru’s reply before opening the battle page. Both lines use the selected subtitle language and English/Japanese voice setting. The other lower Wii menu pages use their original spoken descriptions too. Pan's mouth and Giru's eye
 variants come from the same Wii art pack and change on their recorded lip events. The existing game message window
 displays the extracted line. A screenshot is useful for comparison but is not loaded by the port. The Nintendo WFC
 Battle page uses section 1's clock background, six blue and gold bars, label sheets, title, and Giru pose. It opens
