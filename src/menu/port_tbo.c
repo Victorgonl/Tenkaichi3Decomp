@@ -2790,6 +2790,13 @@ static void Tb_DrawWiiName(void) {
     giruY = 233.0f - 195.0f * travel * travel
             - 8.0f * 4.0f * travel * (1.0f - travel) + giruHover;
     giruU0 = giruFrame < 15 ? 1.0f : 0.0f;
+    if (sTb->mode == TB_WII_FRIEND_CODE) {
+        /* Join Battle has no settings hosts: Giru arrives from offscreen left
+           and retreats along the same horizontal path when the keyboard closes. */
+        giruX = -TB_WII_NATIVE_GIRU_W * (1.0f - travel);
+        giruY = 38.0f + giruHover;
+        giruU0 = 0.0f;
+    }
     giruU1 = 1.0f - giruU0;
     Ps_SpriteScreen(TBO_WII_GIRU, giruX, giruY,
                     giruX + TB_WII_NATIVE_GIRU_W, giruY + TB_WII_NATIVE_GIRU_H,
