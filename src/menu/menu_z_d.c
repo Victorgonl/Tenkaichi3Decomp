@@ -567,6 +567,7 @@ void DcPass_DrawTextLine(DcPass *pass) {
    keyboard helpers, without starting password decoding or replacing its menu windows. */
 static DcPass *sPortNamePass;
 static s32 sPortNameOwnArchive;
+static s32 sPortNameCloseT;
 extern s32 Port_FlashInputOnlyInit(void *flash);
 extern void Port_FlashInputOnlyTerm(void);
 extern void Port_FlashInputOnlyDraw(void *flash);
@@ -576,7 +577,6 @@ void Port_DcNameClose(void);
 s32 Port_DcNameOpen(void) {
     DcPass *pass;
     MTexRes *res;
-    s32 frame;
 
     if (sPortNamePass != NULL) return 1;
     if (gMenuArc8 == NULL) {
@@ -640,9 +640,7 @@ s32 Port_DcNameOpen(void) {
     Flash_Create(&pass->view.flash[0], MPACK_AT(pass->res, 17), pass->view.tex0);
     Flash_Play(&pass->view.flash[0], 1);
     Flash_GotoLabel(&pass->view.flash[0], "fl_input_in", 1);
-    /* Settle the root entrance once. The name page moves the whole keyboard
-       as one unit; individual key timelines still animate normally. */
-    for (frame = 0; frame < 30; frame++) Flash_Advance(&pass->view.flash[0]);
+    sPortNameCloseT = 0;
     DcPassText_Clear(&pass->text);
     sPortNamePass = pass;
     if (!Port_FlashInputOnlyInit(&pass->view.flash[0])) {
@@ -654,6 +652,7 @@ s32 Port_DcNameOpen(void) {
 }
 
 void Port_DcNameClose(void) {
+    sPortNameCloseT = 0;
     Port_FlashInputOnlyTerm();
     if (sPortNamePass != NULL) {
         Flash_Destroy(&sPortNamePass->view.flash[0]);
@@ -666,6 +665,22 @@ void Port_DcNameClose(void) {
         gMenuArc8 = NULL;
         sPortNameOwnArchive = 0;
     }
+}
+
+s32 Port_DcNameReady(void) {
+    return sPortNamePass != NULL && !sPortNameCloseT &&
+           (sPortNamePass->view.flash[0].flags & MFLASH_PAD);
+}
+
+void Port_DcNameStartClose(void) {
+    if (sPortNamePass == NULL || sPortNameCloseT) return;
+    sPortNameCloseT = 1;
+    Flash_GotoLabel(&sPortNamePass->view.flash[0], "fl_input_out", 1);
+}
+
+s32 Port_DcNameIsClosed(void) {
+    /* Data Center plays its exit movie during a 20-frame fade. */
+    return sPortNamePass == NULL || sPortNameCloseT > 20;
 }
 
 s32 Port_DcNameKey(s32 page, s32 row, s32 col) {
@@ -693,6 +708,7 @@ void Port_DcNameDraw(s32 page, s32 row, s32 col, s32 rise) {
     flash = &pass->view.flash[0];
     /* Run the original selection, release and confirmation timelines. */
     Flash_Advance(flash);
+    if (sPortNameCloseT) sPortNameCloseT++;
     next.page = page;
     next.row = row;
     next.col = col;

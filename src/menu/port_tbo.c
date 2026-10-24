@@ -60,6 +60,9 @@ extern s32 PortTbo_TextId(const char *text, s32 kind);
 extern s32 PortTbo_TextInfo(s32 id, s32 what);
 extern s32 Port_DcNameOpen(void);
 extern void Port_DcNameClose(void);
+extern s32 Port_DcNameReady(void);
+extern void Port_DcNameStartClose(void);
+extern s32 Port_DcNameIsClosed(void);
 extern s32 Port_DcNameKey(s32 page, s32 row, s32 col);
 extern void Port_DcNamePress(s32 page, s32 row, s32 col);
 extern void Port_DcNameDraw(s32 page, s32 row, s32 col, s32 rise);
@@ -384,6 +387,9 @@ typedef struct TboScreen {
     s32 wiiFriend;       /* room-code battle, rather than a public/LAN search */
     s32 wiiBattleT;     /* battle-page entrance, after its fade in */
     s32 wiiNextMode;    /* pending Wii page switch, after fade out */
+    s32 wiiNameExit;    /* target page after the keyboard's native exit */
+    s32 wiiNameExitT;
+    s32 wiiNameJoin;
     s32 resultBattles, resultWins[2];
     s32 resultPoints[2], resultPointDelta[2], resultHasPoints;
     s32 wiiSubCur;
@@ -686,6 +692,9 @@ static void Tb_SetMode(s32 mode) {
         if (previous == TB_WII_NAME && mode == TB_WII_SETTINGS)
             sTb->modeT = 24; /* return with the settings page already settled */
         sTb->wiiBattleIntro = 0;
+        sTb->wiiNameExit = 0;
+        sTb->wiiNameExitT = 0;
+        sTb->wiiNameJoin = 0;
         sTb->wiiIdleT = 0;
         if (mode == TB_WII_HOME) {
             sTb->wiiPanPointing = 0;
@@ -1773,23 +1782,28 @@ static s32 Tb_WiiNameKey(void) {
     s32 row = sTb->keyRow;
     s32 next;
 
+    /* Several cells belong to one wide key (including three cells for '0').
+       Match Data Center by skipping cells with the same key value. */
     if (pad->gameRepeat & (PADG_RIGHT | PADG_RIGHT2)) {
-        if (row == WII_KEY_ROWS) next = col < 4 ? 4 : col < 10 ? 10 : 0;
-        else if (row == 3 && col == 0) next = 2;
-        else if (row == 3 && col == 12) next = 0;
-        else next = (col + 1) % WII_KEY_COLS;
-        col = next;
+        next = Port_DcNameKey(sTb->lower, row, col);
+        do { col = (col + 1) % WII_KEY_COLS; }
+        while (Port_DcNameKey(sTb->lower, row, col) == next);
     } else if (pad->gameRepeat & (PADG_LEFT | PADG_LEFT2)) {
-        if (row == WII_KEY_ROWS) next = col < 4 ? 10 : col < 10 ? 0 : 4;
-        else if (row == 3 && col == 0) next = 12;
-        else if (row == 3 && col == 2) next = 0;
-        else next = (col + WII_KEY_COLS - 1) % WII_KEY_COLS;
-        col = next;
+        next = Port_DcNameKey(sTb->lower, row, col);
+        do { col = (col + WII_KEY_COLS - 1) % WII_KEY_COLS; }
+        while (Port_DcNameKey(sTb->lower, row, col) == next);
     }
-    if (pad->gameRepeat & (PADG_DOWN | PADG_DOWN2)) row = (row + 1) % (WII_KEY_ROWS + 1);
-    else if (pad->gameRepeat & (PADG_UP | PADG_UP2)) row = (row + WII_KEY_ROWS) % (WII_KEY_ROWS + 1);
+    if (pad->gameRepeat & (PADG_DOWN | PADG_DOWN2)) {
+        next = Port_DcNameKey(sTb->lower, row, col);
+        do { row = (row + 1) % (WII_KEY_ROWS + 1); }
+        while (Port_DcNameKey(sTb->lower, row, col) == next);
+    } else if (pad->gameRepeat & (PADG_UP | PADG_UP2)) {
+        next = Port_DcNameKey(sTb->lower, row, col);
+        do { row = (row + WII_KEY_ROWS) % (WII_KEY_ROWS + 1); }
+        while (Port_DcNameKey(sTb->lower, row, col) == next);
+    }
     if (row == WII_KEY_ROWS) col = col < 4 ? 0 : col < 10 ? 4 : 10;
-    if (row == 3 && col == 1) col = 0;
+    if (row == 3 && col < 3) col = 0;
     if (row == 3 && col == 13) col = 12;
     if (row != sTb->keyRow || col != sTb->keyCol) {
         sTb->keyRow = row;
@@ -1812,6 +1826,17 @@ static void Tb_WiiNameUpdate(s32 live) {
     s32 c, done = 0;
 
     if (!live) return;
+    if (sTb->wiiNameExit) {
+        sTb->wiiNameExitT++;
+        if (Port_DcNameIsClosed()) {
+            s32 next = sTb->wiiNameExit;
+            s32 join = sTb->wiiNameJoin;
+            if (join) Tb_WiiFriendJoinStart();
+            else Tb_SetMode(next);
+        }
+        return;
+    }
+    if (!Port_DcNameReady()) return;
     /* Match Data Center: shoulder buttons move the text cursor, Start selects
        Decide, Triangle deletes (or leaves when empty), and Cross uses the
        highlighted on-screen key. Physical typing is disabled for this mode. */
@@ -1848,9 +1873,12 @@ static void Tb_WiiNameUpdate(s32 live) {
                 Snd_PlaySe(1, 2);
                 return;
             }
+            if (!Tb_Vanilla()) return;
             Ps_Copy(sTb->code, sTb->typed, sizeof(sTb->code));
             sTb->codeLen = CODE_LEN;
-            Tb_WiiFriendJoinStart();
+            sTb->wiiNameExit = TB_WII_VS;
+            sTb->wiiNameJoin = 1;
+            Port_DcNameStartClose();
             return;
         }
         while (sTb->typedLen > 0 && sTb->typed[sTb->typedLen - 1] == ' ')
@@ -1865,10 +1893,12 @@ static void Tb_WiiNameUpdate(s32 live) {
             return;
         }
         Snd_PlaySe(1, 1);
-        Tb_SetMode(TB_WII_SETTINGS);
+        sTb->wiiNameExit = TB_WII_SETTINGS;
+        Port_DcNameStartClose();
     } else if (done == -1) {
         Snd_PlaySe(1, 2);
-        Tb_SetMode(sTb->mode == TB_WII_FRIEND_CODE ? TB_WII_FRIEND_MENU : TB_WII_SETTINGS);
+        sTb->wiiNameExit = sTb->mode == TB_WII_FRIEND_CODE ? TB_WII_FRIEND_MENU : TB_WII_SETTINGS;
+        Port_DcNameStartClose();
     }
 }
 
@@ -2712,6 +2742,13 @@ static void Tb_DrawWiiNameText(f32 rise, s32 alpha) {
                     0.0f, 0.0f, 1.0f, 1.0f, PS_PLAIN, alpha);
 }
 
+static f32 Tb_WiiNamePanelOffset(void) {
+    s32 frame = sTb->wiiNameExit ? sTb->wiiNameExitT : 16 - sTb->modeT;
+    if (frame < 0) frame = 0;
+    if (frame > 16) frame = 16;
+    return (f32)frame * -18.0f;
+}
+
 static void Tb_DrawWiiName(void) {
     f32 in = (f32)sTb->modeT / 20.0f;
     f32 rise, panX, panY, giruX, giruY, giruHover, turn, giruCx, travel, climb;
@@ -2721,10 +2758,10 @@ static void Tb_DrawWiiName(void) {
     if (in > 1.0f) in = 1.0f;
     if (in < 0.0f) in = 0.0f;
     in = in * in * (3.0f - 2.0f * in);
-    /* The Wii nickname FOD brings every key up by 270 pixels over 16 frames. */
-    rise = sTb->modeT < 16 ? (f32)(16 - sTb->modeT) * 18.0f : 0.0f;
+    /* The upper panel enters from above; the keyboard runs Data Center's movie. */
+    rise = Tb_WiiNamePanelOffset();
     alpha = (s32)(128.0f * in);
-    /* Move the keyboard and name field together during the page entrance. */
+    /* The keyboard owns its native movie motion; Wii artwork moves separately. */
     Ps_SetShift(0.0f);
     /* Data Center supplies the complete keyboard movie. Wii art supplies
        the name field, title and hosts above it. */
@@ -2758,7 +2795,7 @@ static void Tb_DrawWiiName(void) {
                     giruFrame < 15 ? 0.0f : 1.0f, 1.0f, PS_PLAIN, 0x80);
     /* Draw the frame at the source crop's native height. Its lower contour
        meets the keyboard's upper contour without a doubled border. */
-    Port_DcNameDraw(sTb->lower, sTb->keyRow, sTb->keyCol, (s32)rise);
+    Port_DcNameDraw(sTb->lower, sTb->keyRow, sTb->keyCol, 0);
     Ps_SpriteScreen(TBO_WII_NAME_INPUT_FRAME, 0.0f, 42.0f + rise, 256.0f, 186.0f + rise,
                     0.0f, 100.0f / 256.0f, 1.0f, 245.0f / 256.0f, PS_PLAIN, alpha);
     Ps_SpriteScreen(TBO_WII_NAME_INPUT_FRAME, 256.0f, 42.0f + rise, 512.0f, 186.0f + rise,
@@ -3524,7 +3561,7 @@ static void Tb_DrawText(void) {
     case TB_WII_NAME:
     case TB_WII_FRIEND_CODE:
         {
-            f32 rise = sTb->modeT < 16 ? (f32)(16 - sTb->modeT) * 18.0f : 0.0f;
+            f32 rise = Tb_WiiNamePanelOffset();
             if (sTb->mode == TB_WII_NAME)
                 Ps_SpriteScreen(TBO_WII_NAME_TITLE, 0.0f, 46.0f + rise, 512.0f, 110.0f + rise,
                                 0.0f, 0.0f, 1.0f, 1.0f, PS_PLAIN, 0x80);
