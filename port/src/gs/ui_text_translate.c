@@ -406,7 +406,6 @@ int UiText_TranslateIdUtf8(const char *group, int line, char *out, int capacity)
                 if (*p < 0xdc00 || *p > 0xdfff) return 0;
                 c = 0x10000 + ((c - 0xd800) << 10) + (*p++ - 0xdc00);
             }
-            if (c == '\n') c = ' ';
             bytes = c < 0x80 ? 1 : c < 0x800 ? 2 : c < 0x10000 ? 3 : 4;
             if (bytes == 1) out[used++] = (char)c;
             else {

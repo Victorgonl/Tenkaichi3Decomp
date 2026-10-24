@@ -3347,8 +3347,8 @@ static void Tb_Speak(void) {
     noted = sTb->note > 0;
 }
 
-/* The hosts' line (Tb_Help) for the game's box, in the game's text: 16-bit, 0xFEFF first, cut at spaces into lines of
-   what fits (three at most) up to the step of the box's top right corner (at about 410 of the screen's 512: the box
+/* The hosts' line (Tb_Help) for the game's box, in the game's text: 16-bit, 0xFEFF first. Preserve authored line
+   breaks; otherwise wrap at spaces (three lines at most) up to the step of the box's top right corner (at about 410 of the screen's 512: the box
    is the game's movie, over the whole screen). Another buffer for another line (the screen reader tells them apart by
    that). NULL: no line. */
 #define TB_BOX_LINE 224
@@ -3364,9 +3364,14 @@ static u16 *Tb_BoxLine(void) {
     s32 lines;
     s32 at;
     s32 k;
+    s32 explicitLines;
 
     if (say == NULL || say[0] == 0) {
         return NULL;
+    }
+    explicitLines = 0;
+    for (k = 0; say[k] != 0; k++) {
+        if (say[k] == '\n' || say[k] == '\r') explicitLines = 1;
     }
     for (k = 0; cur >= 0 && say[k] == said[k] && say[k] != 0; k++) {
     }
@@ -3389,7 +3394,16 @@ static u16 *Tb_BoxLine(void) {
         s32 end = at;
         s32 mark = n;
 
-        while (say[end] != 0 && say[end] != ' ') {
+        if (say[at] == '\n' || say[at] == '\r') {
+            s32 ch = say[at++];
+            if (ch == '\r' && say[at] == '\n') at++;
+            out[n++] = '\n';
+            start = n;
+            lines++;
+            while (say[at] == ' ') at++;
+            continue;
+        }
+        while (say[end] != 0 && say[end] != ' ' && say[end] != '\n' && say[end] != '\r') {
             end++;
         }
         if (n > start) {
@@ -3408,7 +3422,7 @@ static u16 *Tb_BoxLine(void) {
             }
         }
         out[n] = 0;
-        if (mark > start && lines < 3 && Font_GetWidth(out + start) > room) { /* the word goes to the next line */
+        if (!explicitLines && mark > start && lines < 3 && Font_GetWidth(out + start) > room) { /* the word goes to the next line */
             out[mark] = '\n';
             start = mark + 1;
             lines++;

@@ -351,8 +351,6 @@ static int tbo_wii_dialog_read(const char *path) {
             count[1] < 1 || count[1] > 32 ||
             fread(sWiiDialog[i].text, 1, (size_t)length, file) != (size_t)length) goto bad;
         sWiiDialog[i].text[length] = 0;
-        for (j = 0; j < length; j++)
-            if (sWiiDialog[i].text[j] == '\n') sWiiDialog[i].text[j] = ' ';
         sWiiDialog[i].lip[0].duration = modern ? item[6] | item[7] << 8 : 0;
         sWiiDialog[i].lip[1].duration = modern ? item[8] | item[9] << 8 : item[4] | item[5] << 8;
         for (language = 0; language < 2; language++) {
@@ -391,7 +389,7 @@ static int tbo_wii_dialog_available(void) {
 static int tbo_wii_subtitle_read(const char *path) {
     unsigned char header[8], size[2];
     FILE *file = fopen(path, "rb");
-    int line, i, length;
+    int line, length;
 
     if (file == NULL) return 0;
     if (fread(header, 1, 8, file) != 8 || memcmp(header, "WST1", 4) != 0 ||
@@ -402,8 +400,6 @@ static int tbo_wii_subtitle_read(const char *path) {
         if (length < 1 || length >= (int)sizeof(sWiiSubtitle[line]) ||
             fread(sWiiSubtitle[line], 1, (size_t)length, file) != (size_t)length) goto bad;
         sWiiSubtitle[line][length] = 0;
-        for (i = 0; i < length; i++)
-            if (sWiiSubtitle[line][i] == '\n') sWiiSubtitle[line][i] = ' ';
     }
     fclose(file);
     return 1;
