@@ -59,13 +59,13 @@ selected characters, arrows, delete mark and bottom buttons. Its original select
 animations run unchanged. The movie is shifted upward by 30 pixels as one unit to meet the name field;
 individual keys and captions are not repositioned. The original `fl_input_in` and `fl_input_out` timelines
 play on opening and closing. Input waits for the movie's pad-enable flag; saving, cancelling, and joining
-wait for the 20-frame exit before changing pages or starting the connection.
+wait for the keyboard’s 20-frame exit and Giru’s 29-frame return before changing pages or starting the connection.
 The Wii resource 13 frame, title, underline cursor and typed characters supply the name field above the keyboard.
 The name field mirrors the Wii frame's half-width art and shows Giru behind it. Typed characters are vertically
 centered inside the field.
 Pan remains visible in User Settings and leaves as the keyboard opens. Giru stays beside her on the settings page,
-then moves horizontally left and climbs to the upper-left of the name field, turning toward it during the
-keyboard entrance. He uses his native 256×128 texture size on both pages. The keyboard backing,
+then follows a smooth curved path to the upper-left of the name field during the
+keyboard entrance. His flat sprite keeps its full size, switches facing halfway through the path, and hovers gently throughout. Closing retraces Giru’s curved path back to his settings position while Pan slides back into view. He uses his native 256×128 texture size on both pages. The keyboard backing,
 glyphs, and captions use Data Center's native entrance; the Wii text field keeps its separate slide.
 Returning from User Settings preserves the home positions without replaying their entrance. Both characters keep
 their continuous idle movement.

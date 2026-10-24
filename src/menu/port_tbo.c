@@ -1828,7 +1828,7 @@ static void Tb_WiiNameUpdate(s32 live) {
     if (!live) return;
     if (sTb->wiiNameExit) {
         sTb->wiiNameExitT++;
-        if (Port_DcNameIsClosed()) {
+        if (Port_DcNameIsClosed() && sTb->wiiNameExitT > 29) {
             s32 next = sTb->wiiNameExit;
             s32 join = sTb->wiiNameJoin;
             if (join) Tb_WiiFriendJoinStart();
@@ -2750,17 +2750,20 @@ static f32 Tb_WiiNamePanelOffset(void) {
 }
 
 static void Tb_DrawWiiName(void) {
-    f32 in = (f32)sTb->modeT / 20.0f;
-    f32 rise, panX, panY, giruX, giruY, giruHover, turn, giruCx, travel, climb;
-    s32 giruFrame = sTb->modeT < 29 ? sTb->modeT : 29;
+    f32 in = sTb->wiiNameExit ? 1.0f - (f32)sTb->wiiNameExitT / 20.0f
+                             : (f32)sTb->modeT / 20.0f;
+    f32 rise, panX, panY, giruX, giruY, giruHover, travel, giruU0, giruU1;
+    s32 giruFrame = sTb->wiiNameExit ? 29 - sTb->wiiNameExitT
+                                   : sTb->modeT < 29 ? sTb->modeT : 29;
     s32 alpha;
 
     if (in > 1.0f) in = 1.0f;
     if (in < 0.0f) in = 0.0f;
+    if (giruFrame < 0) giruFrame = 0;
     in = in * in * (3.0f - 2.0f * in);
     /* The upper panel enters from above; the keyboard runs Data Center's movie. */
     rise = Tb_WiiNamePanelOffset();
-    alpha = (s32)(128.0f * in);
+    alpha = sTb->wiiNameExit ? 0x80 : (s32)(128.0f * in);
     /* The keyboard owns its native movie motion; Wii artwork moves separately. */
     Ps_SetShift(0.0f);
     /* Data Center supplies the complete keyboard movie. Wii art supplies
@@ -2775,24 +2778,22 @@ static void Tb_DrawWiiName(void) {
                         243.0f + panX - 270.0f * in, 521.0f + panY,
                         0.0f, 0.0f, 1.0f, 1.0f, PS_PLAIN, 0x80);
     giruHover = Tb_WiiIdleBob(((sTb->frames * 3) + 500) % 2000, 4.5f);
-    /* Match the settings pose at frame zero. Travel left first, then climb
-       while Giru turns toward the name field at the upper left. */
-    travel = giruFrame < 10 ? (f32)giruFrame / 10.0f : 1.0f;
-    climb = giruFrame <= 10 ? 0.0f : (f32)(giruFrame - 10) / 19.0f;
-    climb = climb * climb * (3.0f - 2.0f * climb);
-    giruX = 261.0f * (1.0f - travel);
-    giruY = 233.0f - 195.0f * climb + giruHover;
-    turn = giruFrame < 15 ? 1.0f - (f32)giruFrame / 15.0f : (f32)(giruFrame - 15) / 14.0f;
-    if (turn < 0.02f) turn = 0.02f;
-    giruCx = giruX + TB_WII_NATIVE_GIRU_W * 0.5f;
-    Ps_SpriteScreen(TBO_WII_GIRU, giruCx - TB_WII_NATIVE_GIRU_W * turn * 0.5f, giruY,
-                    giruCx + TB_WII_NATIVE_GIRU_W * turn * 0.5f, giruY + TB_WII_NATIVE_GIRU_H,
-                    giruFrame < 15 ? 1.0f : 0.0f, 0.0f,
-                    giruFrame < 15 ? 0.0f : 1.0f, 1.0f, PS_PLAIN, 0x80);
-    Ps_SpriteScreen(TBO_WII_GIRU_EYE_DIM, giruCx - TB_WII_NATIVE_GIRU_W * turn * 0.5f, giruY,
-                    giruCx + TB_WII_NATIVE_GIRU_W * turn * 0.5f, giruY + TB_WII_NATIVE_GIRU_H,
-                    giruFrame < 15 ? 1.0f : 0.0f, 0.0f,
-                    giruFrame < 15 ? 0.0f : 1.0f, 1.0f, PS_PLAIN, 0x80);
+    /* Ease along one curved path instead of stopping between horizontal and
+       vertical travel. Keep the flat sprite full-size while changing facing;
+       the eye overlay follows exactly the same bounds. Closing retraces it. */
+    travel = (f32)giruFrame / 29.0f;
+    travel = travel * travel * (3.0f - 2.0f * travel);
+    giruX = 261.0f * (1.0f - travel) * (1.0f - travel);
+    giruY = 233.0f - 195.0f * travel * travel
+            - 8.0f * 4.0f * travel * (1.0f - travel) + giruHover;
+    giruU0 = giruFrame < 15 ? 1.0f : 0.0f;
+    giruU1 = 1.0f - giruU0;
+    Ps_SpriteScreen(TBO_WII_GIRU, giruX, giruY,
+                    giruX + TB_WII_NATIVE_GIRU_W, giruY + TB_WII_NATIVE_GIRU_H,
+                    giruU0, 0.0f, giruU1, 1.0f, PS_PLAIN, 0x80);
+    Ps_SpriteScreen(TBO_WII_GIRU_EYE_DIM, giruX, giruY,
+                    giruX + TB_WII_NATIVE_GIRU_W, giruY + TB_WII_NATIVE_GIRU_H,
+                    giruU0, 0.0f, giruU1, 1.0f, PS_PLAIN, 0x80);
     /* Draw the frame at the source crop's native height. Its lower contour
        meets the keyboard's upper contour without a doubled border. */
     Port_DcNameDraw(sTb->lower, sTb->keyRow, sTb->keyCol, 0);
