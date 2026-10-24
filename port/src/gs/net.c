@@ -323,6 +323,20 @@ extern void Port_RollBack(int k);
 extern int gPortResim;
 int Port_NetWarp(void);
 static int sRollMax, sResim, sRollBegun;
+static int sResultScreen, sResultSolo;
+
+void Port_NetResultScreen(int on) {
+    sResultScreen = on;
+    sResultSolo = 0;
+}
+
+void Port_NetResultDetach(void) {
+    sResultSolo = 1;
+    sResim = 0;
+    gPortResim = 0;
+}
+
+int Port_NetResultSolo(void) { return sResultSolo; }
 static uint8_t sUsed[RING][PAD]; /* what the other player's pad read in each blank */
 static uint32_t sChecked;        /* blanks below this were given the other player's real input */
 static uint32_t sLive;           /* during a re-run: the blank that was the present when it began */
@@ -715,6 +729,10 @@ static int receive(void) {
                 memcpy(&why, pkt + 8, 4);
             }
             sGone = why == BYE_APART ? 2 : why == BYE_END_BATTLE ? 3 : 1;
+            if (sResultScreen && why == BYE_END_BATTLE) {
+                Port_NetResultDetach();
+                sGone = 0; /* Keep this player's results until their own End Battle choice. */
+            }
         } else if (type == T_HELLO && sMode == 1 && !(n >= 12 && memcmp(pkt + 8, &kVersion, 4) == 0)) {
             static int said;
             if (!said++) {
@@ -963,6 +981,7 @@ static void net_start(int role, const char *host, const char *join) {
     if (sDelay > 30) { sDelay = 30; }
     sCfgGot = 0;
     sGone = 0;
+    sResultScreen = sResultSolo = 0;
     sVersionBad = 0;
     sDataBad = 0;
     sEchoTs = 0;
@@ -1325,6 +1344,7 @@ static void roll_tick(unsigned tick) {
         sample_local(tick);
         send_inputs();
         receive();
+        if (sResultSolo) return;
         if (sGone) {
             gone(tick);
         }
@@ -1342,6 +1362,7 @@ static void roll_tick(unsigned tick) {
                 if (!receive()) {
                     SDL_DelayNS(200000);
                 }
+                if (sResultSolo) return;
                 if (sGone) {
                     gone(tick);
                 }
@@ -1531,6 +1552,11 @@ void Port_NetBeginTick(unsigned tick) {
         return;
     }
     sTick = tick;
+    if (sResultSolo) {
+        extern void PortSe_BlankBegins(unsigned tick);
+        PortSe_BlankBegins(tick);
+        return;
+    }
     if (Port_NetWarp()) {
         warp_tick(tick);
         return;
@@ -1548,6 +1574,7 @@ void Port_NetBeginTick(unsigned tick) {
     }
     send_inputs();
     receive();
+    if (sResultSolo) return;
     t0 = last = SDL_GetTicksNS();
     if (sHave[!sMe] <= tick) {
         WaitMark w = wait_begin(t0);
@@ -1560,6 +1587,7 @@ void Port_NetBeginTick(unsigned tick) {
             if (!receive()) {
                 SDL_DelayNS(200000);
             }
+            if (sResultSolo) return;
             if (sGone) {
                 gone(tick);
             }
@@ -1597,6 +1625,11 @@ void Port_NetBeginTick(unsigned tick) {
 
 /* What the game reads for a pad during this blank. */
 void Port_NetInput(int player, unsigned char *data) {
+    if (sResultSolo) {
+        memcpy(data, kIdle, PAD);
+        if (player == sMe) Port_PadRead(0, data);
+        return;
+    }
     if (sRollMax > 0 && player == !sMe) {
         memcpy(data, sUsed[sTick % RING], PAD); /* their real input, or the guess (roll_tick) */
         return;
@@ -1847,6 +1880,7 @@ int Port_NetTakeEndReason(void) {
 }
 
 void Port_NetSessionEnd(void) {
+    sResultScreen = sResultSolo = 0;
     sSessionsEnded++;
     Relay_Close(sSock);
     if (sSock >= 0) {
@@ -1893,7 +1927,17 @@ void Port_NetLeave(void) {
     relaunch(0, NULL, 0);
 }
 
-/* Both players acknowledged End Battle: no disconnect dialog on either copy. */
+/* Leave immediately; the peer can acknowledge its own results later. */
+void Port_NetResultLeave(void) {
+    uint32_t bye[3] = {MAGIC, T_BYE, BYE_END_BATTLE};
+    int k;
+    Port_NetResultDetach();
+    sByeWhy = BYE_END_BATTLE;
+    if (sSock >= 0 && sConnected)
+        for (k = 0; k < 3; k++) net_send(bye, sizeof(bye), &sPeer);
+}
+
+/* Normal End Battle never opens a disconnect dialog. */
 void Port_NetEndBattle(void) {
     sEndReason = 0;
     sByeWhy = BYE_END_BATTLE;

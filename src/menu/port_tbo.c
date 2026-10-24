@@ -4015,9 +4015,14 @@ typedef struct OnlineResult {
     s32 cursor[2], requested[2], ended[2];
 } OnlineResult;
 static OnlineResult *sOnlineResult;
+extern void Port_NetResultScreen(s32 on);
+extern void Port_NetResultLeave(void);
+extern s32 Port_NetResultSolo(void);
 
 static void OnlineResult_Update(void) {
     s32 side;
+    if (Port_NetResultSolo() && !sOnlineResult->ended[Port_NetMe()])
+        sOnlineResult->ended[!Port_NetMe()] = 1;
     if (!sOnlineResult->active) {
         sOnlineResult->active = 1;
         sOnlineResult->winner = BattleResult_HasWinner() ? BattleResult_GetWinnerSide() : -1;
@@ -4061,12 +4066,14 @@ static void OnlineResult_Update(void) {
             }
         }
     }
-    /* A refusal cancels every rematch request and leaves each player time to acknowledge it. */
+    /* Rematching is over, but each player acknowledges only their own results. */
     if (sOnlineResult->ended[0] || sOnlineResult->ended[1]) {
         sOnlineResult->requested[0] = sOnlineResult->requested[1] = 0;
         sOnlineResult->cursor[0] = sOnlineResult->cursor[1] = 1;
-        if (sOnlineResult->ended[0] && sOnlineResult->ended[1])
+        if (sOnlineResult->ended[Port_NetMe()]) {
+            Port_NetResultLeave();
             BattleResult_Set(BTL_RESULT_ABORT, 0x20);
+        }
     } else if (sOnlineResult->requested[0] && sOnlineResult->requested[1])
         sOnlineResult->rematchWait = 3 * 60;
 }
@@ -4089,6 +4096,7 @@ s32 PortTbo_ResultRun(s32 battles, s32 wins0, s32 wins1, s32 *points) {
     s32 edited[2];
     s32 style = Port_NetBattleMenuStyle(-1);
     extern s32 gPortMenuMode;
+    Port_NetResultScreen(1);
     gPortMenuMode = 1;
     if (ownedArc) gMenuArc5 = File_LoadSync(gProgress->baseFile, NULL, 0);
     sTb = Heap_Alloc(sizeof(*sTb), 0x20, 0, 2);
@@ -4236,5 +4244,6 @@ s32 PortTbo_ResultRun(s32 battles, s32 wins0, s32 wins1, s32 *points) {
     if (ownedArc) { Heap_Free(gMenuArc5); gMenuArc5 = NULL; }
     Adx_StopAll();
     gPortMenuMode = 0;
+    Port_NetResultScreen(0);
     return decision;
 }

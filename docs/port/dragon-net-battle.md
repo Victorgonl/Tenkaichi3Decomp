@@ -339,10 +339,13 @@ selection via battle-result reason 0x10. Players choose characters and a stage a
 the online session, lobby rules, and session records are retained.
 Disabled Rematch uses the Dragon Net menu’s opaque RGB 0x58 tint on both its bar
 and lettering, rather than fading their opacity.
-An End Battle choice cancels requests, disables rematch, and keeps the results open
-until both players acknowledge End Battle. Their badges appear above that button.
-This sends a normal End Battle goodbye reason, so neither player sees the
-“other player left the match” dialog. Unexpected disconnects keep their existing messages.
+An End Battle choice cancels requests and disables rematch. The player who chooses
+it leaves immediately after the normal fade; the other player stays on the results
+screen until choosing End Battle independently. A normal End Battle goodbye switches
+the remaining screen to local input, so it never waits for a departed peer and does
+not show the “other player left the match” dialog. Unexpected disconnects keep their existing messages.
+`python3 port/tests/test_result_exit.py` checks independent exits, waiting on the
+remaining results screen, mutual rematches, goodbye handling, and local input for both sides.
 WIN and confirmed player badges pulse together with their starburst backings in a
 90-frame loop (1.5 seconds), scaling by ±6% around fixed centers. The shared
 starburst retains the extracted Wii texture’s original transparency and yellow outline.
