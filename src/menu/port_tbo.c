@@ -2705,6 +2705,7 @@ static void Tb_DrawWiiNameText(f32 rise, s32 alpha) {
         char c = sTb->typed[i];
         s32 page = 0, row, col, sx, sy;
         f32 dx = 32.0f + (f32)i * 25.0f;
+        f32 dy = 111.0f + rise;
 
         if (c == ' ') continue;
         if (c >= 'a' && c <= 'z') {
@@ -2723,6 +2724,8 @@ static void Tb_DrawWiiNameText(f32 rise, s32 alpha) {
             row = 3;
             col = c - '0';
             sx = 84 + col * 31 + (col >= 5 ? 10 : 0);
+            /* The digit row's baseline is two pixels below the letter rows. */
+            dy -= 2.0f;
         } else {
             for (col = 0; symbols[col] != 0 && symbols[col] != c; col++) {}
             if (symbols[col] == 0) col = 6;
@@ -2730,8 +2733,8 @@ static void Tb_DrawWiiNameText(f32 rise, s32 alpha) {
             sx = 27 + col * 31 + (col >= 7 ? 9 : 0);
         }
         sy = page * 128 + row * 32;
-        Ps_SpriteScreen(TBO_WII_NAME_GLYPHS, dx, 111.0f + rise,
-                        dx + 31.0f, 143.0f + rise,
+        Ps_SpriteScreen(TBO_WII_NAME_GLYPHS, dx, dy,
+                        dx + 31.0f, dy + 32.0f,
                         (f32)sx / 512.0f, (f32)sy / 256.0f,
                         (f32)(sx + 31) / 512.0f, (f32)(sy + 32) / 256.0f,
                         PS_PLAIN, alpha);
